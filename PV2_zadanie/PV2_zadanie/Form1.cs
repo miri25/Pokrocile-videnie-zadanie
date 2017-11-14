@@ -12,6 +12,7 @@ using Emgu.CV.Structure;
 using Emgu.Util;
 using Emgu.CV.UI;
 using Emgu.CV.CvEnum;
+using System.IO;
 
 namespace PV2_zadanie
 {
@@ -29,6 +30,10 @@ namespace PV2_zadanie
         //private Mat _smallGrayFrame;
         //private Mat _smoothedGrayFrame;
         //private Mat _cannyFrame;
+
+        private int count1;
+        private int count2;
+        private string path;
 
         public Form1()
         {
@@ -54,6 +59,14 @@ namespace PV2_zadanie
             //_smallGrayFrame = new Mat();
             //_smoothedGrayFrame = new Mat();
             //_cannyFrame = new Mat();
+
+            //create directory for saving images
+            count1 = 0;
+            count2 = 0;
+            DateTime dt = DateTime.Now;
+            path = "C:/Users/Miroslav Gajdzik/Desktop/PV2/zadanie/PV2_zadanie/PV2_zadanie/Pictures/";
+            path += dt.ToString("dd.MM.yyyy_hh.mm.ss");
+            DirectoryInfo di = Directory.CreateDirectory(path);
         }
 
         private void ProcessFrame(object sender, EventArgs arg)
@@ -152,6 +165,16 @@ namespace PV2_zadanie
             {
                 Bitmap frame1 = USBCam1_imageBox.Image.Bitmap;
                 frame1_imageBox.Image = new Image<Bgr, byte>(frame1);
+
+                //saving images
+                try
+                {
+                    frame1.Save(path + "/usbCam1_" + count1++.ToString() + ".jpeg");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Saving image failed: {0}", ex.ToString());
+                }
             }
         }
 
@@ -160,7 +183,17 @@ namespace PV2_zadanie
             if (USBCam2_imageBox.Image != null)
             {
                 Bitmap frame2 = USBCam2_imageBox.Image.Bitmap;
-                frame2_imageBox.Image = new Image<Bgr, byte>(frame2); 
+                frame2_imageBox.Image = new Image<Bgr, byte>(frame2);
+
+                //saving images
+                try
+                {
+                    frame2.Save(path + "/usbCam2_" + count2++.ToString() + ".jpeg");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Saving image failed: {0}", ex.ToString());
+                }
             }
         }
 
