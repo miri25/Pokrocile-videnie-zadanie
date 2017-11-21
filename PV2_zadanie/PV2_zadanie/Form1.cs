@@ -19,11 +19,11 @@ namespace PV2_zadanie
     public partial class Form1 : Form
     {
         private Image<Bgr, byte> img;
-        //private VideoCapture _capture1 = null;
+        private VideoCapture _capture1 = null;
         private VideoCapture _capture2 = null;
         private VideoCapture _capture3 = null;
         private bool _captureInProgress;
-        //private Mat _frame1;
+        private Mat _frame1;
         private Mat _frame2;
         private Mat _frame3;
         //private Mat _grayFrame;
@@ -41,10 +41,10 @@ namespace PV2_zadanie
             CvInvoke.UseOpenCL = false;
             try
             {
-                //_capture1 = new VideoCapture(0); //0 = built in webcam, 1-2 = USB connected webcams
-                _capture2 = new VideoCapture(1);
+                _capture1 = new VideoCapture(1); //0 = built in webcam, 1-2 = USB connected webcams
+                _capture2 = new VideoCapture(0);
                 _capture3 = new VideoCapture(2);
-                //_capture1.ImageGrabbed += ProcessFrame;
+                _capture1.ImageGrabbed += ProcessFrame;
                 _capture2.ImageGrabbed += ProcessFrame;
                 _capture3.ImageGrabbed += ProcessFrame;
             }
@@ -52,7 +52,7 @@ namespace PV2_zadanie
             {
                 MessageBox.Show(excpt.Message);
             }
-            //_frame1 = new Mat();
+            _frame1 = new Mat();
             _frame2 = new Mat();
             _frame3 = new Mat();
             //_grayFrame = new Mat();
@@ -71,9 +71,9 @@ namespace PV2_zadanie
 
         private void ProcessFrame(object sender, EventArgs arg)
         {
-            if (/*(_capture1 != null && _capture1.Ptr != IntPtr.Zero) ||*/ (_capture2 != null && _capture2.Ptr != IntPtr.Zero) || (_capture3 != null && _capture3.Ptr != IntPtr.Zero))
+            if ((_capture1 != null && _capture1.Ptr != IntPtr.Zero) || (_capture2 != null && _capture2.Ptr != IntPtr.Zero) || (_capture3 != null && _capture3.Ptr != IntPtr.Zero))
             {
-                //_capture1.Retrieve(_frame1, 0);
+                _capture1.Retrieve(_frame1, 0);
                 _capture2.Retrieve(_frame2, 0);
                 _capture3.Retrieve(_frame3, 0);
 
@@ -85,7 +85,7 @@ namespace PV2_zadanie
 
                 //CvInvoke.Canny(_smoothedGrayFrame, _cannyFrame, 100, 60);
 
-                //builtWebCam_imageBox.Image = _frame1;
+                builtWebCam_imageBox.Image = _frame1;
                 USBCam1_imageBox.Image = _frame2;
                 USBCam2_imageBox.Image = _frame3;
                 //grayscaleImageBox.Image = _grayFrame;
@@ -109,23 +109,23 @@ namespace PV2_zadanie
 
         private void captureButton_Click(object sender, EventArgs e)
         {
-            //if (_capture1 != null)
-            //{
-            //    if (_captureInProgress)
-            //    {  //stop the capture
-            //        captureButton.Text = "Start Capture";
-            //        _capture1.Pause();
-            //    }
-            //    else
-            //    {
-            //        //start the capture
-            //        captureButton.Text = "Stop";
-            //        _capture1.Start();
-            //    }
+            if (_capture1 != null)
+            {
+                if (_captureInProgress)
+                {  //stop the capture
+                    captureButton.Text = "Start Capture";
+                    _capture1.Pause();
+                }
+                else
+                {
+                    //start the capture
+                    captureButton.Text = "Stop";
+                    _capture1.Start();
+                }
 
-            //    _captureInProgress = !_captureInProgress;
-            //}
-            //if (_capture2 != null)
+                _captureInProgress = !_captureInProgress;
+            }
+            if (_capture2 != null)
             {
                 if (_captureInProgress)
                 {  //stop the capture
