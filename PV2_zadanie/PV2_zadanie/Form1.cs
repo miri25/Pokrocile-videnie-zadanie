@@ -197,6 +197,23 @@ namespace PV2_zadanie
             }
         }
 
+        private void ButtonCalibrate_Click(object sender, EventArgs e)
+        {
+            string path = "C:/Users/Miroslav Gajdzik/Desktop/PV2/zadanie/PV2_zadanie/PV2_zadanie/Pictures/Calibration/Z aplikácie/";
+
+            string[] fileNames = Directory.GetFiles(path);
+            List<string> fileList = fileNames.ToList<string>();
+
+            Size chessSize = new Size(9, 6);
+
+            Kalibrator kalibrator = new Kalibrator(fileList, chessSize);
+            Mat camMatrix = kalibrator.cameraMatrix;
+            Mat distCoefs = kalibrator.distortionCoeffs;
+            
+            //Image<Bgr, byte> bgrvstup = new Image<Bgr, byte>((Bitmap)frame1_imageBox.Image);
+            //Image<Gray, byte> vstup = new Image<Gray, byte>(frame1_imageBox.Image);
+        }
+
         //private void ReleaseData()
         //{
         //    if (_capture != null)

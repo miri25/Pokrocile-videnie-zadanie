@@ -15,7 +15,7 @@ using System.Xml.Serialization;
 using System.IO;
 using System.Drawing.Drawing2D;
 
-namespace CalcLib.Analyza.Filter
+namespace PV2_zadanie
 {
     public class Kalibrator
     {
@@ -27,8 +27,7 @@ namespace CalcLib.Analyza.Filter
 
         //vnutorne parametre kamery
         //IntrinsicCameraParameters IntrinsicParams;
-        public Mat cameraMatrix; //VectorOfPointF
-        public Mat distortionCoeffs; //VectorOfPointF
+         //VectorOfPointF
 
         //vonkajsie parametre kamery
         Mat[] rotationVectors;
@@ -48,12 +47,27 @@ namespace CalcLib.Analyza.Filter
 
         bool MustInitUndistort;
 
-        public Kalibrator()
+        private List<string> _fileList;
+        private Size _boardSize;
+        public Mat cameraMatrix;
+        public Mat distortionCoeffs;
+
+        public Kalibrator(List<string> fileList, Size boardSize)
         {
+            for (int i = 0; i < fileList.Count; i++)
+            {
+                this._fileList.Add(fileList[i]);
+            }
+            this._boardSize = boardSize;
+
             this.Flag = CalibType.Default;
             this.MustInitUndistort = true;
             this.ImagePoints = new List<PointF[]>(); //PointF[]
             this.ObjectPoints = new List<MCvPoint3D32f[]>();
+
+            int v = AddChessboardPoints(this._fileList, this._boardSize);
+            Size imsize = new Image<Bgr, byte>(this._fileList[0]).Size;
+            double result = Calibrate(imsize);
         }
 
         /// <summary>
@@ -62,7 +76,7 @@ namespace CalcLib.Analyza.Filter
         /// <param name="fileList">zoznam mien obrázkov s šachovnicami</param>
         /// <param name="boardSize">počet vnútorných rohov šachovnice (x-1, y-1)</param>
         /// <returns></returns>
-        public int AddChessboardPoints(string[] fileList, Size boardSize)
+        private int AddChessboardPoints(List<string> fileList, Size boardSize)
         {
             //PointF[][] imageCorners = new PointF[Frame_array_buffer.Length][];
             //body na šachovnici
@@ -88,7 +102,7 @@ namespace CalcLib.Analyza.Filter
             //List<VectorOfPointF> corners = new List<VectorOfPointF>();
             GC.Collect();
             //pre všetky vstupné obrázky - uhly pohľadu
-            for (int i = 0; i < fileList.Length; i++) 
+            for (int i = 0; i < fileList.Count; i++) 
             {
                 var cornerPoints = new VectorOfPointF(); //vektor rohových bodov šachovnice
                 image = new Image<Gray, Byte>(fileList[i]); //načítaj obrázok zo zoznamu
@@ -135,7 +149,7 @@ namespace CalcLib.Analyza.Filter
         /// </summary>
         /// <param name="imageSize">veľkosť obrázka</param>
         /// <returns>vracia chybu re-projekcie</returns>
-        public double Calibrate(Size imageSize)
+        private double Calibrate(Size imageSize)
         {
             //undistorter must be reinitialized???
             this.MustInitUndistort = true;
@@ -158,67 +172,67 @@ namespace CalcLib.Analyza.Filter
             return vysledok;
         }
 
-        /// <summary>
-        /// odstráni skreslenie z obrázka (po kalibrácii)
-        /// </summary>
-        /// <param name="image"></param>
-        /// <returns></returns>
-        public Image<Gray, Byte> Remap(Image<Gray, Byte> image, int metoda)
-        {
-            Mat cameraMatrix2 = new Mat(3, 3, DepthType.Cv64F, 1);
-            Mat distortionCoeffs2 = new Mat(5, 1, DepthType.Cv64F, 1);
-            cameraMatrix2.SetValue(0, 0, 2842.64422);
-            cameraMatrix2.SetValue(0, 1, 0.00);
-            cameraMatrix2.SetValue(0, 2, 2045.03798);
-            cameraMatrix2.SetValue(1, 0, 0.00);
-            cameraMatrix2.SetValue(1, 1, 2816.96523);
-            cameraMatrix2.SetValue(1, 2, 1106.48584);
-            cameraMatrix2.SetValue(2, 0, 0.00);
-            cameraMatrix2.SetValue(2, 1, 0.00);
-            cameraMatrix2.SetValue(2, 2, 1.00);
-            distortionCoeffs2.SetValue(0, 0, -0.43715);
-            distortionCoeffs2.SetValue(0, 1, 0.19142);
-            distortionCoeffs2.SetValue(0, 2, -0.00106);
-            distortionCoeffs2.SetValue(0, 3, 0.00268);
-            distortionCoeffs2.SetValue(0, 4, 0.00);
-            Image<Gray, Byte> undistorted = new Image<Gray, byte>(image.Size); //obrázok pre uloženie upraveného obrázka
-            if (metoda == 1)
-            {
-                if (this.MustInitUndistort)//called once per calibration
-                {
-                    this.Map1 = new Image<Gray, float>(image.Size);
-                    this.Map2 = new Image<Gray, float>(image.Size);
-                    IInputArray R = null; //???????
-                    newCameraMatrix = new Mat(3, 3, DepthType.Cv64F, 1);
+        ///// <summary>
+        ///// odstráni skreslenie z obrázka (po kalibrácii)
+        ///// </summary>
+        ///// <param name="image"></param>
+        ///// <returns></returns>
+        //public Image<Gray, Byte> Remap(Image<Gray, Byte> image, int metoda)
+        //{
+        //    Mat cameraMatrix2 = new Mat(3, 3, DepthType.Cv64F, 1);
+        //    Mat distortionCoeffs2 = new Mat(5, 1, DepthType.Cv64F, 1);
+        //    cameraMatrix2.SetValue(0, 0, 2842.64422);
+        //    cameraMatrix2.SetValue(0, 1, 0.00);
+        //    cameraMatrix2.SetValue(0, 2, 2045.03798);
+        //    cameraMatrix2.SetValue(1, 0, 0.00);
+        //    cameraMatrix2.SetValue(1, 1, 2816.96523);
+        //    cameraMatrix2.SetValue(1, 2, 1106.48584);
+        //    cameraMatrix2.SetValue(2, 0, 0.00);
+        //    cameraMatrix2.SetValue(2, 1, 0.00);
+        //    cameraMatrix2.SetValue(2, 2, 1.00);
+        //    distortionCoeffs2.SetValue(0, 0, -0.43715);
+        //    distortionCoeffs2.SetValue(0, 1, 0.19142);
+        //    distortionCoeffs2.SetValue(0, 2, -0.00106);
+        //    distortionCoeffs2.SetValue(0, 3, 0.00268);
+        //    distortionCoeffs2.SetValue(0, 4, 0.00);
+        //    Image<Gray, Byte> undistorted = new Image<Gray, byte>(image.Size); //obrázok pre uloženie upraveného obrázka
+        //    if (metoda == 1)
+        //    {
+        //        if (this.MustInitUndistort)//called once per calibration
+        //        {
+        //            this.Map1 = new Image<Gray, float>(image.Size);
+        //            this.Map2 = new Image<Gray, float>(image.Size);
+        //            IInputArray R = null; //???????
+        //            newCameraMatrix = new Mat(3, 3, DepthType.Cv64F, 1);
 
-                    CvInvoke.InitUndistortRectifyMap(cameraMatrix2, distortionCoeffs2, R, newCameraMatrix, undistorted.Size, DepthType.Cv32F, Map1, Map2);
+        //            CvInvoke.InitUndistortRectifyMap(cameraMatrix2, distortionCoeffs2, R, newCameraMatrix, undistorted.Size, DepthType.Cv32F, Map1, Map2);
 
-                    //XML serializácia objektov Map1/2 do textových súborov
-                    XmlSerializer serializer = new XmlSerializer(typeof(Image<Gray, float>));
-                    TextWriter textWriter = new StreamWriter("Map1.txt");
-                    serializer.Serialize(textWriter, Map1);
-                    textWriter.Close();
-                    TextWriter textWriter2 = new StreamWriter("Map2.txt");
-                    serializer.Serialize(textWriter2, Map2);
-                    textWriter2.Close();
-                    //
+        //            //XML serializácia objektov Map1/2 do textových súborov
+        //            XmlSerializer serializer = new XmlSerializer(typeof(Image<Gray, float>));
+        //            TextWriter textWriter = new StreamWriter("Map1.txt");
+        //            serializer.Serialize(textWriter, Map1);
+        //            textWriter.Close();
+        //            TextWriter textWriter2 = new StreamWriter("Map2.txt");
+        //            serializer.Serialize(textWriter2, Map2);
+        //            textWriter2.Close();
+        //            //
 
-                    this.MustInitUndistort = false;
-                }
-                //premapovanie obrázka
-                CvInvoke.Remap(image, undistorted, Map1, Map2, Inter.Linear, BorderType.Constant, new MCvScalar(0)); 
-            }
-            else if (metoda == 2) {
-                //XmlSerializer serializer = new XmlSerializer(typeof(MatDataAllocator));
-                //TextWriter textWriter = new StreamWriter("cameraMatrix.txt");
-                //serializer.Serialize(textWriter, cameraMatrix.Data);
-                //textWriter.Close();
-                //TextWriter textWriter2 = new StreamWriter("distortionCoeffs.txt");
-                //serializer.Serialize(textWriter2, distortionCoeffs.Data);
-                //textWriter2.Close();
-                CvInvoke.Undistort(image, undistorted, cameraMatrix2, distortionCoeffs2);  //cameraMatrix, distortionCoeffs
-            }
-            return undistorted;
-        }
+        //            this.MustInitUndistort = false;
+        //        }
+        //        //premapovanie obrázka
+        //        CvInvoke.Remap(image, undistorted, Map1, Map2, Inter.Linear, BorderType.Constant, new MCvScalar(0)); 
+        //    }
+        //    else if (metoda == 2) {
+        //        //XmlSerializer serializer = new XmlSerializer(typeof(MatDataAllocator));
+        //        //TextWriter textWriter = new StreamWriter("cameraMatrix.txt");
+        //        //serializer.Serialize(textWriter, cameraMatrix.Data);
+        //        //textWriter.Close();
+        //        //TextWriter textWriter2 = new StreamWriter("distortionCoeffs.txt");
+        //        //serializer.Serialize(textWriter2, distortionCoeffs.Data);
+        //        //textWriter2.Close();
+        //        CvInvoke.Undistort(image, undistorted, cameraMatrix2, distortionCoeffs2);  //cameraMatrix, distortionCoeffs
+        //    }
+        //    return undistorted;
+        //}
     }
 }

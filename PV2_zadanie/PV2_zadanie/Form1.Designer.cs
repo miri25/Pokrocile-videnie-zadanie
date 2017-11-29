@@ -43,6 +43,7 @@
             this.label5 = new System.Windows.Forms.Label();
             this.button1 = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
+            this.ButtonCalibrate = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.imageBox1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.builtWebCam_imageBox)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.USBCam1_imageBox)).BeginInit();
@@ -187,11 +188,22 @@
             this.button2.UseVisualStyleBackColor = true;
             this.button2.Click += new System.EventHandler(this.button2_Click);
             // 
+            // ButtonCalibrate
+            // 
+            this.ButtonCalibrate.Location = new System.Drawing.Point(311, 617);
+            this.ButtonCalibrate.Name = "ButtonCalibrate";
+            this.ButtonCalibrate.Size = new System.Drawing.Size(156, 50);
+            this.ButtonCalibrate.TabIndex = 16;
+            this.ButtonCalibrate.Text = "Calibrate";
+            this.ButtonCalibrate.UseVisualStyleBackColor = true;
+            this.ButtonCalibrate.Click += new System.EventHandler(this.ButtonCalibrate_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1437, 799);
+            this.Controls.Add(this.ButtonCalibrate);
             this.Controls.Add(this.button2);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.label5);
@@ -235,6 +247,7 @@
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button ButtonCalibrate;
     }
 }
 
