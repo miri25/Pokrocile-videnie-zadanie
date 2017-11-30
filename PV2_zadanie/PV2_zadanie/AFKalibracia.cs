@@ -12,9 +12,9 @@ using System.IO;
 using System.Runtime.InteropServices;
 using CalcLib.Analyza.Filter;
 
-namespace CalcLib.Analyza.Filter
+namespace PV2_zadanie
 {
-    public class AFKalibracia : AFRoot, iaf
+    public class AFKalibracia
     {
         private Mat _cameraMatrix;     //vnutorna matica kamery
         private Mat _distortionCoeffs; //koeficienty skreslenia
@@ -50,43 +50,43 @@ namespace CalcLib.Analyza.Filter
             this._vyskaSnimaca = vyska;
         }
 
-        public iaf Copy()
-        {
-            throw new NotImplementedException();
-        }
+        //public iaf Copy()
+        //{
+        //    throw new NotImplementedException();
+        //}
 
-        public override void Execute(List<CameraStatus> zoznamVstupov, List<CameraStatus> zoznamVystupov)
-        {
-            Image<Bgr, byte> _vstup = zoznamVstupov[0].imgBgr;
+        //public override void Execute(List<CameraStatus> zoznamVstupov, List<CameraStatus> zoznamVystupov)
+        //{
+        //    Image<Bgr, byte> _vstup = zoznamVstupov[0].imgBgr;
 
-            Image<Bgr, byte> _vystup = new Image<Bgr, byte>(_vstup.Size);
+        //    Image<Bgr, byte> _vystup = new Image<Bgr, byte>(_vstup.Size);
 
-            //úprava obrázka pomocou vstupných matíc
-            CvInvoke.Undistort(_vstup, _vystup, _cameraMatrix, _distortionCoeffs); 
-            //
+        //    //úprava obrázka pomocou vstupných matíc
+        //    CvInvoke.Undistort(_vstup, _vystup, _cameraMatrix, _distortionCoeffs); 
+        //    //
 
-            //počítanie zorného uhla
-                //vypocet ohniskovej vzdialenosti v oboch osiach
-                double _Fx = _cameraMatrix.GetValue(0, 0) / (_vstup.Width / _sirkaSnimaca); //ohniskova vzdialenost v osi x
-                double _Fy = _cameraMatrix.GetValue(1, 1) / (_vstup.Height / _vyskaSnimaca); //ohniskova vzdialenost v osi y
-                //
+        //    //počítanie zorného uhla
+        //        //vypocet ohniskovej vzdialenosti v oboch osiach
+        //        double _Fx = _cameraMatrix.GetValue(0, 0) / (_vstup.Width / _sirkaSnimaca); //ohniskova vzdialenost v osi x
+        //        double _Fy = _cameraMatrix.GetValue(1, 1) / (_vstup.Height / _vyskaSnimaca); //ohniskova vzdialenost v osi y
+        //        //
 
-                //vypocet zorneho uhla kamery (vodorovne a zvislo)
-                double _hfov = 2 * Math.Atan(_sirkaSnimaca / (2 * _Fx)) * (180 / Math.PI); //horizontalny uhol
-                double _vfov = 2 * Math.Atan(_vyskaSnimaca / (2 * _Fy)) * (180 / Math.PI); //vertikalny uhol
-                //  
-            //
+        //        //vypocet zorneho uhla kamery (vodorovne a zvislo)
+        //        double _hfov = 2 * Math.Atan(_sirkaSnimaca / (2 * _Fx)) * (180 / Math.PI); //horizontalny uhol
+        //        double _vfov = 2 * Math.Atan(_vyskaSnimaca / (2 * _Fy)) * (180 / Math.PI); //vertikalny uhol
+        //        //  
+        //    //
 
-            CameraStatus cs = (CameraStatus)zoznamVstupov[0].Clone();
-            cs.imgBgr = _vystup;
+        //    CameraStatus cs = (CameraStatus)zoznamVstupov[0].Clone();
+        //    cs.imgBgr = _vystup;
 
-            cs.sirkaSnimaca = _sirkaSnimaca; //
-            cs.vyskaSnimaca = _vyskaSnimaca; //nastavenie sirky a vysky snimaca kamery v CameraStatus
+        //    cs.sirkaSnimaca = _sirkaSnimaca; //
+        //    cs.vyskaSnimaca = _vyskaSnimaca; //nastavenie sirky a vysky snimaca kamery v CameraStatus
 
-            cs.angleHorizontal = _hfov; //
-            cs.angleVertical = _vfov;   //nastavenie horizontalneho a vertikalneho uhla v CameraStatus
+        //    cs.angleHorizontal = _hfov; //
+        //    cs.angleVertical = _vfov;   //nastavenie horizontalneho a vertikalneho uhla v CameraStatus
 
-            zoznamVystupov.Add(cs);
-        }
+        //    zoznamVystupov.Add(cs);
+        //}
     }
 }

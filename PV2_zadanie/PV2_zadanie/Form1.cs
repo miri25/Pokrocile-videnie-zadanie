@@ -209,9 +209,17 @@ namespace PV2_zadanie
             Kalibrator kalibrator = new Kalibrator(fileList, chessSize);
             Mat camMatrix = kalibrator.cameraMatrix;
             Mat distCoefs = kalibrator.distortionCoeffs;
-            
+
             //Image<Bgr, byte> bgrvstup = new Image<Bgr, byte>((Bitmap)frame1_imageBox.Image);
             //Image<Gray, byte> vstup = new Image<Gray, byte>(frame1_imageBox.Image);
+            
+            Image<Gray, byte> input = new Image<Gray, byte>(frame1_imageBox.Image.Bitmap);
+            Image<Gray, byte> final = new Image<Gray, byte>(input.Size);
+
+            CvInvoke.Undistort(input, final, camMatrix, distCoefs); //popisat funkcionalitu, urobit vlastnu funkciu!!, nemusime kodit interpolaciu
+            CvInvoke.Imshow("distorted", input);
+            CvInvoke.Imshow("undistorted", final);
+
         }
 
         //private void ReleaseData()

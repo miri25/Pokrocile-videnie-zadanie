@@ -54,6 +54,7 @@ namespace PV2_zadanie
 
         public Kalibrator(List<string> fileList, Size boardSize)
         {
+            _fileList = new List<string>();
             for (int i = 0; i < fileList.Count; i++)
             {
                 this._fileList.Add(fileList[i]);
@@ -230,7 +231,7 @@ namespace PV2_zadanie
         //        //TextWriter textWriter2 = new StreamWriter("distortionCoeffs.txt");
         //        //serializer.Serialize(textWriter2, distortionCoeffs.Data);
         //        //textWriter2.Close();
-        //        CvInvoke.Undistort(image, undistorted, cameraMatrix2, distortionCoeffs2);  //cameraMatrix, distortionCoeffs
+                //CvInvoke.Undistort(image, undistorted, cameraMatrix2, distortionCoeffs2);  //cameraMatrix, distortionCoeffs
         //    }
         //    return undistorted;
         //}
