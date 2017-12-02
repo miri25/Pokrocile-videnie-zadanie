@@ -13,6 +13,7 @@ using Emgu.Util;
 using Emgu.CV.UI;
 using Emgu.CV.CvEnum;
 using System.IO;
+using DirectShowLib;
 
 namespace PV2_zadanie
 {
@@ -64,9 +65,11 @@ namespace PV2_zadanie
             count1 = 0;
             count2 = 0;
             DateTime dt = DateTime.Now;
-            path = "C:/Users/Miroslav Gajdzik/Desktop/PV2/zadanie/PV2_zadanie/PV2_zadanie/Pictures/";
+            
+            path = "Pictures/";
             path += dt.ToString("dd.MM.yyyy_hh.mm.ss");
             DirectoryInfo di = Directory.CreateDirectory(path);
+            
         }
 
         private void ProcessFrame(object sender, EventArgs arg)
@@ -195,31 +198,6 @@ namespace PV2_zadanie
                     Console.WriteLine("Saving image failed: {0}", ex.ToString());
                 }
             }
-        }
-
-        private void ButtonCalibrate_Click(object sender, EventArgs e)
-        {
-            string path = "C:/Users/Miroslav Gajdzik/Desktop/PV2/zadanie/PV2_zadanie/PV2_zadanie/Pictures/Calibration/Z aplikácie/";
-
-            string[] fileNames = Directory.GetFiles(path);
-            List<string> fileList = fileNames.ToList<string>();
-
-            Size chessSize = new Size(9, 6);
-
-            Kalibrator kalibrator = new Kalibrator(fileList, chessSize);
-            Mat camMatrix = kalibrator.cameraMatrix;
-            Mat distCoefs = kalibrator.distortionCoeffs;
-
-            //Image<Bgr, byte> bgrvstup = new Image<Bgr, byte>((Bitmap)frame1_imageBox.Image);
-            //Image<Gray, byte> vstup = new Image<Gray, byte>(frame1_imageBox.Image);
-            
-            Image<Gray, byte> input = new Image<Gray, byte>(frame1_imageBox.Image.Bitmap);
-            Image<Gray, byte> final = new Image<Gray, byte>(input.Size);
-
-            CvInvoke.Undistort(input, final, camMatrix, distCoefs); //popisat funkcionalitu, urobit vlastnu funkciu!!, nemusime kodit interpolaciu
-            CvInvoke.Imshow("distorted", input);
-            CvInvoke.Imshow("undistorted", final);
-
         }
 
         //private void ReleaseData()
