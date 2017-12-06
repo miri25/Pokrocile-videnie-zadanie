@@ -35,6 +35,7 @@
             this.flowLayoutPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.labelSelect = new System.Windows.Forms.Label();
             this.buttonCalibration = new System.Windows.Forms.Button();
+            this.buttonSaveCalib = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // buttonSelect
@@ -91,11 +92,23 @@
             this.buttonCalibration.UseVisualStyleBackColor = true;
             this.buttonCalibration.Click += new System.EventHandler(this.buttonCalibration_Click);
             // 
+            // buttonSaveCalib
+            // 
+            this.buttonSaveCalib.Enabled = false;
+            this.buttonSaveCalib.Location = new System.Drawing.Point(1327, 150);
+            this.buttonSaveCalib.Name = "buttonSaveCalib";
+            this.buttonSaveCalib.Size = new System.Drawing.Size(75, 23);
+            this.buttonSaveCalib.TabIndex = 6;
+            this.buttonSaveCalib.Text = "Save Calib.";
+            this.buttonSaveCalib.UseVisualStyleBackColor = true;
+            this.buttonSaveCalib.Click += new System.EventHandler(this.buttonSaveCalib_Click);
+            // 
             // CameraCapture
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1414, 636);
+            this.Controls.Add(this.buttonSaveCalib);
             this.Controls.Add(this.buttonCalibration);
             this.Controls.Add(this.labelSelect);
             this.Controls.Add(this.flowLayoutPanel);
@@ -116,5 +129,6 @@
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel;
         private System.Windows.Forms.Label labelSelect;
         private System.Windows.Forms.Button buttonCalibration;
+        private System.Windows.Forms.Button buttonSaveCalib;
     }
 }

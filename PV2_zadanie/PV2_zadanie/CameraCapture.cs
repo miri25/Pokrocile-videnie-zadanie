@@ -25,7 +25,7 @@ namespace PV2_zadanie
         private List<CameraInfo> _selectedCam = new List<CameraInfo>();
 
         // calibrators
-        private Calibration stereoCalib = new Calibration();
+        private Calibration calibration = new Calibration();
 
         private int _maxSelect = 2;
 
@@ -37,16 +37,18 @@ namespace PV2_zadanie
         private int imgNum = 0;
 
         // path to saving directory
-        private string path;
+        private String pathSave;
+        private String pathLoad;
 
         public CameraCapture()
         {
             InitializeComponent();
 
             DateTime date = DateTime.Now;
-            path = Application.StartupPath + "\\Pictures\\Stereo";
+            pathSave = Application.StartupPath + "\\Pictures\\Stereo";
+            pathLoad = pathSave;
             //path += date.ToString("dd.MM.yyyy_hh.mm.ss");
-            //Directory.CreateDirectory(path);
+            Directory.CreateDirectory(pathSave);
 
             CvInvoke.UseOpenCL = false;
             try
@@ -157,7 +159,7 @@ namespace PV2_zadanie
         {
             if (_isSelected)
             {
-                _selectedCam.ForEach(cam => cam.Save(path, imgNum));
+                _selectedCam.ForEach(cam => cam.Save(pathSave, imgNum));
                 imgNum++;
             }
         }
@@ -217,15 +219,15 @@ namespace PV2_zadanie
             foreach (ImageBox c in flowLayoutPanel.Controls)
             {
                 if ((int)c.Tag == 20)
-                    c.Image = stereoCalib.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame).ToImage<Gray, byte>();
+                    c.Image = calibration.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame).ToImage<Gray, byte>();
                 else
                 {
                     CameraInfo camera = _camera.First(cam => cam.id == (int)c.Tag);
                     if (_isCalibrated)
                         if ((int)c.Tag == 20)
-                            c.Image = stereoCalib.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame);
+                            c.Image = calibration.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame);
                         else
-                            c.Image = stereoCalib.correctImage(camera.frame, camera.role);
+                            c.Image = calibration.correctImage(camera.frame, camera.role);
                     else
                         c.Image = camera.frame;
                 }
@@ -242,7 +244,7 @@ namespace PV2_zadanie
                     string[] paths = null;
                     using (OpenFileDialog fdialog = new OpenFileDialog())
                     {
-                        fdialog.InitialDirectory = path;
+                        fdialog.InitialDirectory = pathLoad;
                         fdialog.Multiselect = true;
                         fdialog.CheckFileExists = true;
                         fdialog.CheckPathExists = true;
@@ -250,7 +252,10 @@ namespace PV2_zadanie
 
                         fdialog.Title = "Left camera images";
                         if (fdialog.ShowDialog() == DialogResult.OK)
+                        {
                             paths = fdialog.FileNames;
+                            pathLoad = fdialog.FileName.TrimStart('\\');
+                        }
                     }
 
                     if (paths == null)
@@ -259,7 +264,7 @@ namespace PV2_zadanie
                         return;
                     }
 
-                    _isCalibrated = stereoCalib.calibrate(25, new Size(9, 6), paths);
+                    _isCalibrated = calibration.calibrate(25, new Size(9, 6), paths);
 
                     break;
 
@@ -271,7 +276,7 @@ namespace PV2_zadanie
                     string[] pathsRight = null;
                     using (OpenFileDialog fdialog = new OpenFileDialog())
                     {
-                        fdialog.InitialDirectory = path;
+                        fdialog.InitialDirectory = pathLoad;
                         fdialog.Multiselect = true;
                         fdialog.CheckFileExists = true;
                         fdialog.CheckPathExists = true;
@@ -279,11 +284,19 @@ namespace PV2_zadanie
 
                         fdialog.Title = "Left camera images";
                         if (fdialog.ShowDialog() == DialogResult.OK)
+                        {
                             pathsLeft = fdialog.FileNames;
-                        
+                            pathLoad = fdialog.FileName.TrimStart('\\');
+                        }
+
+                        fdialog.InitialDirectory = pathLoad;
+
                         fdialog.Title = "Right camera images";
                         if (fdialog.ShowDialog() == DialogResult.OK)
+                        {
                             pathsRight = fdialog.FileNames;
+                            pathLoad = fdialog.FileName.TrimStart('\\');
+                        }
                     }
 
                     if (pathsLeft == null || pathsRight == null)
@@ -298,7 +311,7 @@ namespace PV2_zadanie
                         return;
                     }
 
-                    _isCalibrated = stereoCalib.calibrate(25, new Size(9, 6), pathsLeft, pathsRight);
+                    _isCalibrated = calibration.calibrate(25, new Size(9, 6), pathsLeft, pathsRight);
 
                     addCamView(20);
                     break;
@@ -312,6 +325,19 @@ namespace PV2_zadanie
             _camera.ForEach(cam => cam.Dispose());
             _camera.Clear();
             _selectedCam.Clear();
+        }
+
+        private void buttonSaveCalib_Click(object sender, EventArgs e)
+        {
+            string path = null;
+            using (FolderBrowserDialog fdialog = new FolderBrowserDialog())
+            {
+                fdialog.RootFolder = Environment.SpecialFolder.CommonDesktopDirectory;
+
+                if (fdialog.ShowDialog() == DialogResult.OK)
+                    path = fdialog.SelectedPath;
+            }
+            calibration.saveData(path);
         }
     }
 

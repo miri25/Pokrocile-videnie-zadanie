@@ -20,15 +20,18 @@ namespace PV2_zadanie
 
     class Calibration
     {
-        Matrix<double>[] cameraMatrix;
-        Matrix<double>[] distortionCoeffs;
-        Matrix<double>[] rotationMatrix;
-        Matrix<double>[] translationMatrix;
-        Matrix<double> disparityMatrix;
-        Rectangle[] roiCam;
-        Size imgSize;
+        private Matrix<double>[] cameraMatrix;
+        private Matrix<double>[] distortionCoeffs;
+        private Matrix<double>[] rotationMatrix;
+        private Matrix<double>[] translationMatrix;
+        private Matrix<double> disparityMatrix;
+        private Rectangle[] roiCam;
+        private Size imgSize;
 
-        bool _isStereo;
+        private bool _isCalibrated = false;
+        public bool isCalibrated { get { return _isCalibrated; } }
+
+        private bool _isStereo;
 
         public Calibration()
         {
@@ -166,6 +169,9 @@ namespace PV2_zadanie
 
         public Mat correctImage(Mat image, CameraRole role)
         {
+            if (!_isCalibrated)
+                return new Mat();
+
             Mat outImg = image.Clone();
             int ix = 0;
 
@@ -179,8 +185,10 @@ namespace PV2_zadanie
 
         public Mat computeDisparity(Mat leftImg, Mat rightImg)
         {
+            if (!_isCalibrated)
+                return new Mat();
+
             Mat disparity = new Mat();
-            
             using (StereoSGBM stereoSolver = new StereoSGBM(5, 48, 0))
             {
                 stereoSolver.Compute(leftImg, rightImg, disparity);
@@ -233,8 +241,8 @@ namespace PV2_zadanie
                 translationMat,
                 CalibType.Default,
                 new MCvTermCriteria(30, 0.1));
-
-            return true;
+            
+            return _isCalibrated = true;
         }
 
         public bool calibrate(float squareEdge, Size patternSize, string[] imagesLeft, string[] imagesRight)
@@ -299,8 +307,39 @@ namespace PV2_zadanie
                 imgSize,
                 ref roiCam[0],
                 ref roiCam[1]);
+            
+            return _isCalibrated = true;
+        }
 
-            return true;
+        public void saveData(string path)
+        {
+            if (!_isCalibrated)
+                return;
+
+            StreamWriter file = new StreamWriter(path, false);
+            for (int cam = 0; cam < cameraMatrix.Length; cam++)
+            {
+                file.WriteLine("Camera Matrix "+ cam +":");
+                for (int row = 0; row < cameraMatrix[cam].Rows; row++)
+                {
+                    for (int col = 0; col < cameraMatrix[cam].Cols; col++)
+                    {
+                        file.Write("{0,10:F3}", cameraMatrix[cam][row, col]);
+                    }
+                    file.WriteLine();
+                }
+                file.WriteLine();
+
+                file.WriteLine("Distortion Matrix "+ cam +":");
+                for (int row = 0; row < distortionCoeffs[cam].Rows; row++)
+                {
+                    for (int col = 0; col < distortionCoeffs[cam].Cols; col++)
+                    {
+                        file.Write("{0,10:F3}", distortionCoeffs[cam][row, col]);
+                    }
+                    file.WriteLine();
+                }
+            }
         }
     }
 }
