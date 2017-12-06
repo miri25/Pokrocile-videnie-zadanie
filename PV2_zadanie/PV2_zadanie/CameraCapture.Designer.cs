@@ -29,27 +29,17 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.buttonCapture = new System.Windows.Forms.Button();
             this.buttonSelect = new System.Windows.Forms.Button();
             this.buttonSave = new System.Windows.Forms.Button();
             this.frameTimer = new System.Windows.Forms.Timer(this.components);
             this.flowLayoutPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.labelSelect = new System.Windows.Forms.Label();
+            this.buttonCalibration = new System.Windows.Forms.Button();
             this.SuspendLayout();
-            // 
-            // buttonCapture
-            // 
-            this.buttonCapture.Location = new System.Drawing.Point(1001, 23);
-            this.buttonCapture.Name = "buttonCapture";
-            this.buttonCapture.Size = new System.Drawing.Size(75, 23);
-            this.buttonCapture.TabIndex = 0;
-            this.buttonCapture.Text = "Start";
-            this.buttonCapture.UseVisualStyleBackColor = true;
-            this.buttonCapture.Click += new System.EventHandler(this.buttonCapture_Click);
             // 
             // buttonSelect
             // 
-            this.buttonSelect.Location = new System.Drawing.Point(1001, 52);
+            this.buttonSelect.Location = new System.Drawing.Point(1327, 17);
             this.buttonSelect.Name = "buttonSelect";
             this.buttonSelect.Size = new System.Drawing.Size(75, 23);
             this.buttonSelect.TabIndex = 1;
@@ -59,7 +49,8 @@
             // 
             // buttonSave
             // 
-            this.buttonSave.Location = new System.Drawing.Point(1001, 81);
+            this.buttonSave.Enabled = false;
+            this.buttonSave.Location = new System.Drawing.Point(1327, 46);
             this.buttonSave.Name = "buttonSave";
             this.buttonSave.Size = new System.Drawing.Size(75, 23);
             this.buttonSave.TabIndex = 2;
@@ -77,28 +68,39 @@
             this.flowLayoutPanel.Location = new System.Drawing.Point(0, 0);
             this.flowLayoutPanel.Margin = new System.Windows.Forms.Padding(0);
             this.flowLayoutPanel.Name = "flowLayoutPanel";
-            this.flowLayoutPanel.Size = new System.Drawing.Size(985, 466);
+            this.flowLayoutPanel.Size = new System.Drawing.Size(1310, 636);
             this.flowLayoutPanel.TabIndex = 3;
             // 
             // labelSelect
             // 
             this.labelSelect.AutoSize = true;
-            this.labelSelect.Location = new System.Drawing.Point(1001, 111);
+            this.labelSelect.Location = new System.Drawing.Point(1324, 72);
             this.labelSelect.Name = "labelSelect";
             this.labelSelect.Size = new System.Drawing.Size(55, 13);
             this.labelSelect.TabIndex = 4;
             this.labelSelect.Text = "Selected: ";
             // 
+            // buttonCalibration
+            // 
+            this.buttonCalibration.Enabled = false;
+            this.buttonCalibration.Location = new System.Drawing.Point(1327, 121);
+            this.buttonCalibration.Name = "buttonCalibration";
+            this.buttonCalibration.Size = new System.Drawing.Size(75, 23);
+            this.buttonCalibration.TabIndex = 5;
+            this.buttonCalibration.Text = "Calibrate";
+            this.buttonCalibration.UseVisualStyleBackColor = true;
+            this.buttonCalibration.Click += new System.EventHandler(this.buttonCalibration_Click);
+            // 
             // CameraCapture
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1089, 466);
+            this.ClientSize = new System.Drawing.Size(1414, 636);
+            this.Controls.Add(this.buttonCalibration);
             this.Controls.Add(this.labelSelect);
             this.Controls.Add(this.flowLayoutPanel);
             this.Controls.Add(this.buttonSave);
             this.Controls.Add(this.buttonSelect);
-            this.Controls.Add(this.buttonCapture);
             this.Name = "CameraCapture";
             this.Text = "CameraCapture";
             this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.CameraCapture_FormClosing);
@@ -108,12 +110,11 @@
         }
 
         #endregion
-
-        private System.Windows.Forms.Button buttonCapture;
         private System.Windows.Forms.Button buttonSelect;
         private System.Windows.Forms.Button buttonSave;
         private System.Windows.Forms.Timer frameTimer;
         private System.Windows.Forms.FlowLayoutPanel flowLayoutPanel;
         private System.Windows.Forms.Label labelSelect;
+        private System.Windows.Forms.Button buttonCalibration;
     }
 }

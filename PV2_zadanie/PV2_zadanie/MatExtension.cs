@@ -8,7 +8,7 @@ using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
 
-namespace CalcLib.Analyza.Filter
+namespace PV2_zadanie
 {
     //rozsirujuca trieda pre vyber hodnot z EmguCV objektov typu Mat
     public static class MatExtension

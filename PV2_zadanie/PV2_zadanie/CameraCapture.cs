@@ -21,17 +21,16 @@ namespace PV2_zadanie
     public partial class CameraCapture : Form
     {
         // cameras
-        List<CameraInfo> camera = new List<CameraInfo>();
-
-        // select 2 for stereo
+        private List<CameraInfo> _camera = new List<CameraInfo>();
         private List<CameraInfo> _selectedCam = new List<CameraInfo>();
+
+        // calibrators
+        private Calibration stereoCalib = new Calibration();
 
         private int _maxSelect = 2;
 
-        // is capturing flag
-        private bool _isCapturing;
-
-        // is selected flag
+        // flags
+        private bool _isCalibrated;
         private bool _isSelected;
 
         // number of saved image
@@ -45,23 +44,21 @@ namespace PV2_zadanie
             InitializeComponent();
 
             DateTime date = DateTime.Now;
-            path = "Pictures/";
-            path += date.ToString("dd.MM.yyyy_hh.mm.ss");
-            Directory.CreateDirectory(path);
+            path = Application.StartupPath + "\\Pictures\\Stereo";
+            //path += date.ToString("dd.MM.yyyy_hh.mm.ss");
+            //Directory.CreateDirectory(path);
 
             CvInvoke.UseOpenCL = false;
             try
             {
-                DsDevice[] _SysteCameras = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
-                if (_SysteCameras.Length == 0)
+                _camera = getConnectedCameras();
+
+                if (_camera.Count == 0)
                     return;
-
-                for (int i = 0; i < _SysteCameras.Length; i++)
-                    camera.Add(new CameraInfo(i, _SysteCameras[i].Name));
-
-                setCamView(camera);
+                
+                setCamView(_camera);
+                _camera.ForEach(cam => cam.Start());
                 frameTimer.Enabled = true;
-                buttonCapture.Enabled = true;
             }
             catch (NullReferenceException excpt)
             {
@@ -69,20 +66,32 @@ namespace PV2_zadanie
             }
         }
 
-        private void setCamView(List<CameraInfo> cam)
+        private List<CameraInfo> getConnectedCameras()
+        {
+            DsDevice[] _SysteCameras = DsDevice.GetDevicesOfCat(FilterCategory.VideoInputDevice);
+            if (_SysteCameras.Length == 0)
+                return new List<CameraInfo>();
+
+            List<CameraInfo> camera = new List<CameraInfo>();
+            for (int i = 0; i < _SysteCameras.Length; i++)
+                camera.Add(new CameraInfo(i, _SysteCameras[i].Name));
+            return camera;
+        }
+
+        private void setCamView(List<CameraInfo> camera)
         {
             flowLayoutPanel.Controls.Clear();
 
             Size size = flowLayoutPanel.Size;
-            int rows = (int)Math.Sqrt(cam.Count);
-            int cols = (int)Math.Ceiling((double)cam.Count / rows);
+            int rows = (int)Math.Sqrt(camera.Count);
+            int cols = (int)Math.Ceiling((double)camera.Count / rows);
             size.Height /= rows;
             size.Width /= cols;
 
-            for (int i = 0; i < cam.Count; i++)
+            for (int i = 0; i < camera.Count; i++)
             {
                 ImageBox view = new ImageBox();
-                view.Tag = cam[i].id;
+                view.Tag = camera[i].id;
                 view.MouseClick += camView_Click;
                 view.Size = size;
                 view.Margin = new Padding(0);
@@ -95,7 +104,7 @@ namespace PV2_zadanie
             return;
         }
 
-        private void addCamView(CameraInfo cam)
+        private void addCamView(int idTag)
         {
             Size size = flowLayoutPanel.Size;
             int count = flowLayoutPanel.Controls.Count + 1;
@@ -106,7 +115,7 @@ namespace PV2_zadanie
             size.Width /= cols;
 
             ImageBox view = new ImageBox();
-            view.Tag = cam.id;
+            view.Tag = idTag;
             view.MouseClick += camView_Click;
             view.Margin = new Padding(0);
             view.Padding = new Padding(0);
@@ -121,29 +130,32 @@ namespace PV2_zadanie
             return;
         }
 
-        private void buttonCapture_Click(object sender, EventArgs e)
+        private void addRowView(int idTag)
         {
-            _isCapturing = !_isCapturing;
+            Size size = flowLayoutPanel.Size;
+            int count = flowLayoutPanel.Controls.Count;
 
-            if (_isCapturing)
-            {
-                buttonCapture.Text = "Stop";
-                camera.ForEach(cam => cam.Start());
-                frameTimer.Start();
-                buttonSelect.Enabled = true;
-            }
-            else
-            {
-                buttonCapture.Text = "Start";
-                camera.ForEach(cam => cam.Pause());
-                frameTimer.Stop();
-                buttonSelect.Enabled = false;
-            }
+            int rows = (int)Math.Sqrt(count);
+            int cols = (int)Math.Ceiling((double)count / rows);
+            size.Height /= rows+1;
+            size.Width /= cols;
+
+            foreach (Control c in flowLayoutPanel.Controls)
+                c.Size = size;
+
+            ImageBox view = new ImageBox();
+            view.Tag = idTag;
+            view.Margin = new Padding(0);
+            view.Padding = new Padding(0);
+            view.FunctionalMode = ImageBox.FunctionalModeOption.RightClickMenu;
+            view.SizeMode = PictureBoxSizeMode.Zoom;
+            view.Size = new Size(flowLayoutPanel.Width, size.Height);
+            flowLayoutPanel.Controls.Add(view);
         }
 
         private void buttonSave_Click(object sender, EventArgs e)
         {
-            if (_isCapturing && _isSelected)
+            if (_isSelected)
             {
                 _selectedCam.ForEach(cam => cam.Save(path, imgNum));
                 imgNum++;
@@ -157,19 +169,24 @@ namespace PV2_zadanie
             if (_isSelected)
             {
                 buttonSelect.Text = "Reset";
-                setCamView(_selectedCam);
-                foreach (CameraInfo cam in camera)
-                    if(!_selectedCam.Contains(cam))
-                        cam.Stop();
                 buttonSave.Enabled = true;
+                buttonCalibration.Enabled = true;
+
+                setCamView(_selectedCam);
+                foreach (CameraInfo cam in _camera)
+                    if (!_selectedCam.Contains(cam))
+                        cam.Stop();
             }
             else
             {
                 buttonSelect.Text = "Select";
-                _selectedCam.Clear();
-                camera.ForEach(cam => cam.Start());
-                setCamView(camera);
                 buttonSave.Enabled = false;
+                buttonCalibration.Enabled = false;
+                _isCalibrated = false;
+
+                _selectedCam.Clear();
+                _camera.ForEach(cam => cam.Start());
+                setCamView(_camera);
             }
         }
 
@@ -178,7 +195,7 @@ namespace PV2_zadanie
             if (!_isSelected)
             {
                 ImageBox control = (sender as ImageBox);
-                CameraInfo selectedCam = camera.First(cam => cam.id == (int)control.Tag);
+                CameraInfo selectedCam = _camera.First(cam => cam.id == (int)control.Tag);
                 if (_selectedCam.Remove(selectedCam))
                 {
                     control.BackColor = Color.Transparent;
@@ -190,23 +207,110 @@ namespace PV2_zadanie
 
                 _selectedCam.Add(selectedCam);
                 control.BackColor = Color.DeepSkyBlue;
-                labelSelect.Text += "\nCamera_" + selectedCam.id; 
+                labelSelect.Text = "";
+                _selectedCam.ForEach(selCam => labelSelect.Text += "\nCamera_" + selCam.id);
             }
         }
 
         private void frameTimer_Tick(object sender, EventArgs e)
         {
             foreach (ImageBox c in flowLayoutPanel.Controls)
-                c.Image = camera.First(cam => cam.id == (int)c.Tag).frame;
+            {
+                if ((int)c.Tag == 20)
+                    c.Image = stereoCalib.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame).ToImage<Gray, byte>();
+                else
+                {
+                    CameraInfo camera = _camera.First(cam => cam.id == (int)c.Tag);
+                    if (_isCalibrated)
+                        if ((int)c.Tag == 20)
+                            c.Image = stereoCalib.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame);
+                        else
+                            c.Image = stereoCalib.correctImage(camera.frame, camera.role);
+                    else
+                        c.Image = camera.frame;
+                }
+            }
 
+        }
+
+        private void buttonCalibration_Click(object sender, EventArgs e)
+        {
+            switch (_selectedCam.Count)
+            {
+                case 1:
+                    _selectedCam[0].role = CameraRole.Single;
+                    string[] paths = null;
+                    using (OpenFileDialog fdialog = new OpenFileDialog())
+                    {
+                        fdialog.InitialDirectory = path;
+                        fdialog.Multiselect = true;
+                        fdialog.CheckFileExists = true;
+                        fdialog.CheckPathExists = true;
+                        fdialog.Filter = "(*.jpeg)|*.jpeg";
+
+                        fdialog.Title = "Left camera images";
+                        if (fdialog.ShowDialog() == DialogResult.OK)
+                            paths = fdialog.FileNames;
+                    }
+
+                    if (paths == null)
+                    {
+                        MessageBox.Show("Samples not set!");
+                        return;
+                    }
+
+                    _isCalibrated = stereoCalib.calibrate(25, new Size(9, 6), paths);
+
+                    break;
+
+                case 2:
+                    _selectedCam[0].role = CameraRole.Stereo_Left;
+                    _selectedCam[1].role = CameraRole.Stereo_Right;
+
+                    string[] pathsLeft = null;
+                    string[] pathsRight = null;
+                    using (OpenFileDialog fdialog = new OpenFileDialog())
+                    {
+                        fdialog.InitialDirectory = path;
+                        fdialog.Multiselect = true;
+                        fdialog.CheckFileExists = true;
+                        fdialog.CheckPathExists = true;
+                        fdialog.Filter = "(*.jpeg)|*.jpeg";
+
+                        fdialog.Title = "Left camera images";
+                        if (fdialog.ShowDialog() == DialogResult.OK)
+                            pathsLeft = fdialog.FileNames;
+                        
+                        fdialog.Title = "Right camera images";
+                        if (fdialog.ShowDialog() == DialogResult.OK)
+                            pathsRight = fdialog.FileNames;
+                    }
+
+                    if (pathsLeft == null || pathsRight == null)
+                    {
+                        MessageBox.Show("Samples not set!");
+                        return;
+                    }
+
+                    if (pathsLeft.Length != pathsRight.Length)
+                    {
+                        MessageBox.Show("Samples count is not equal!");
+                        return;
+                    }
+
+                    _isCalibrated = stereoCalib.calibrate(25, new Size(9, 6), pathsLeft, pathsRight);
+
+                    addCamView(20);
+                    break;
+            }
         }
 
         private void CameraCapture_FormClosing(object sender, FormClosingEventArgs e)
         {
             frameTimer.Stop();
-            camera.ForEach(cam => cam.Stop());
-            camera.ForEach(cam => cam.Dispose());
-            camera.Clear();
+            _camera.ForEach(cam => cam.Stop());
+            _camera.ForEach(cam => cam.Dispose());
+            _camera.Clear();
             _selectedCam.Clear();
         }
     }
@@ -215,6 +319,8 @@ namespace PV2_zadanie
     {
         // identifier
         public int id;
+
+        public CameraRole role;
 
         public string cameraType;
 
@@ -247,7 +353,7 @@ namespace PV2_zadanie
         public void Start()
         {
             if (_graber.IsOpened)
-                _graber.ImageGrabbed += processFrame;
+                _graber.Start();
         }
 
         public void Stop()
@@ -264,13 +370,13 @@ namespace PV2_zadanie
 
         public bool Save(string path, int imgNum)
         {
-            string cameraPath = path + "/Camera_" + id;
+            string cameraPath = path + "\\Camera_" + id;
             if (!Directory.Exists(cameraPath))
                 Directory.CreateDirectory(cameraPath);
 
             try
             {
-                frame.Save(cameraPath + "/" + imgNum + ".jpeg");
+                frame.Save(cameraPath + "\\" + imgNum + ".jpeg");
             }
             catch (Exception ex)
             {
