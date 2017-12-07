@@ -45,9 +45,10 @@ namespace PV2_zadanie
             distortionCoeffs = new Matrix<double>[1];
             rotationMatrix = new Matrix<double>[0];
             translationMatrix = new Matrix<double>[0];
+            roiCam = new Rectangle[1];
 
-            cameraMatrix[1] = new Matrix<double>(3, 3);
-            distortionCoeffs[1] = new Matrix<double>(8, 1);
+            cameraMatrix[0] = new Matrix<double>(3, 3);
+            distortionCoeffs[0] = new Matrix<double>(8, 1);
         }
 
         public void initStereo()
@@ -99,7 +100,7 @@ namespace PV2_zadanie
                     imageLeft,
                     patternSize,
                     cornersLeft);
-
+                
                 findRight = CvInvoke.FindChessboardCorners(
                     imageRight,
                     patternSize,
@@ -170,29 +171,69 @@ namespace PV2_zadanie
         public Mat correctImage(Mat image, CameraRole role)
         {
             if (!_isCalibrated)
-                return new Mat();
+                return null;
 
             Mat outImg = image.Clone();
-            int ix = 0;
 
-            if (role == CameraRole.Stereo_Right && _isStereo)
+            if (!_isStereo)
+            {
+                CvInvoke.Undistort(image, outImg, cameraMatrix[0], distortionCoeffs[0]);
+                /*
+                roiCam[0] = new Rectangle();
+                CvInvoke.InitUndistortRectifyMap(
+                    cameraMatrix[0],
+                    distortionCoeffs[0],
+                    new Mat(),
+                    CvInvoke.GetOptimalNewCameraMatrix(
+                        cameraMatrix[0],
+                        distortionCoeffs[0],
+                        imgSize, 1, imgSize,
+                        ref roiCam[0]),
+                    imgSize,
+                    DepthType.Cv32F,
+                    map1, map2);
+                CvInvoke.Remap(image, outImg, map1, map2, Inter.Cubic);
+                */
+                
+                return outImg;
+            }
+
+            int ix = 0;
+            if (role == CameraRole.Stereo_Right)
                 ix = 1;
 
-            CvInvoke.Undistort(image, outImg, cameraMatrix[ix], distortionCoeffs[ix]);
-            //outImg.Draw(roiCam[ix], new Bgr(Color.LimeGreen), 1);
+            //CvInvoke.Undistort(image, outImg, cameraMatrix[ix], distortionCoeffs[ix]);
+            Mat map1 = new Mat();
+            Mat map2 = new Mat();
+
+            //CvInvoke.WarpPerspective(outImg, outImg, translationMatrix[ix],imgSize);
+            
+            CvInvoke.InitUndistortRectifyMap(
+                cameraMatrix[ix],
+                distortionCoeffs[ix],
+                rotationMatrix[ix],
+                translationMatrix[ix],
+                imgSize,
+                DepthType.Cv32F,
+                map1, map2);
+            CvInvoke.Remap(image, outImg, map1, map2, Inter.Cubic);
             return outImg;
         }
 
         public Mat computeDisparity(Mat leftImg, Mat rightImg)
         {
-            if (!_isCalibrated)
+            if (!_isCalibrated || !_isStereo)
                 return new Mat();
-
+            
+            if (leftImg.Depth != rightImg.Depth)
+                return new Mat();
+            
             Mat disparity = new Mat();
-            using (StereoSGBM stereoSolver = new StereoSGBM(5, 48, 0))
+            using (StereoSGBM stereoSolver = new StereoSGBM(5, 64, 3))
             {
                 stereoSolver.Compute(leftImg, rightImg, disparity);
                 //CvInvoke.ReprojectImageTo3D(disparity, img, disparityMatrix);
+                //MCvPoint3D32f[] points = PointCollection.ReprojectImageTo3D(disparity, disparityMatrix);
             }
 
             return disparity;
@@ -224,19 +265,22 @@ namespace PV2_zadanie
                 return false;
             }
 
-            VectorOfVectorOfPoint3D32F chessboard = new VectorOfVectorOfPoint3D32F(getChessboardCorners(squareEdge, patternSize));
+            VectorOfPoint3D32F chessboard = getChessboardCorners(squareEdge, patternSize);
+            VectorOfVectorOfPoint3D32F objectPoints = new VectorOfVectorOfPoint3D32F();
+            for (int i = corners.Size; i > 0; i--)
+                objectPoints.Push(chessboard);
 
             Image<Gray, Byte> image = new Image<Gray, Byte>(images[0]);
-            Size imgSize = image.Size;
+            imgSize = image.Size;
             Mat rotationMat = new Mat();
             Mat translationMat = new Mat();
 
             CvInvoke.CalibrateCamera(
-                chessboard,
+                objectPoints,
                 corners,
                 image.Size,
-                cameraMatrix[1],
-                distortionCoeffs[1],
+                cameraMatrix[0],
+                distortionCoeffs[0],
                 rotationMat,
                 translationMat,
                 CalibType.Default,
@@ -262,7 +306,6 @@ namespace PV2_zadanie
                 objectPoints.Push(chessboard);
 
             Image<Gray, Byte> image = new Image<Gray, Byte>(imagesLeft[0]);
-            Size frameSz = image.Size;
             imgSize = Size.Empty;
             roiCam[0] = Rectangle.Empty;
             roiCam[1] = Rectangle.Empty;
@@ -281,7 +324,7 @@ namespace PV2_zadanie
                 distortionCoeffs[0],
                 cameraMatrix[1],
                 distortionCoeffs[1],
-                frameSz,
+                image.Size,
                 rotationMat,
                 translationMat,
                 essentialMat,
@@ -294,7 +337,7 @@ namespace PV2_zadanie
                 distortionCoeffs[0],
                 cameraMatrix[1],
                 distortionCoeffs[1],
-                frameSz,
+                image.Size,
                 rotationMat,
                 translationMat,
                 rotationMatrix[0],
@@ -307,7 +350,10 @@ namespace PV2_zadanie
                 imgSize,
                 ref roiCam[0],
                 ref roiCam[1]);
-            
+
+            imgSize.Width = roiCam[0].Width > roiCam[1].Width ? roiCam[0].Width : roiCam[1].Width;
+            imgSize.Height = roiCam[0].Height > roiCam[1].Height ? roiCam[0].Height : roiCam[1].Height;
+
             return _isCalibrated = true;
         }
 

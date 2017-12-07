@@ -219,18 +219,19 @@ namespace PV2_zadanie
             foreach (ImageBox c in flowLayoutPanel.Controls)
             {
                 if ((int)c.Tag == 20)
-                    c.Image = calibration.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame).ToImage<Gray, byte>();
-                else
                 {
-                    CameraInfo camera = _camera.First(cam => cam.id == (int)c.Tag);
-                    if (_isCalibrated)
-                        if ((int)c.Tag == 20)
-                            c.Image = calibration.computeDisparity(_selectedCam[0].frame, _selectedCam[1].frame);
-                        else
-                            c.Image = calibration.correctImage(camera.frame, camera.role);
-                    else
-                        c.Image = camera.frame;
+                    c.Image = calibration.computeDisparity( _selectedCam[0].corrFrame,
+                                                            _selectedCam[1].corrFrame).ToImage<Gray, byte>();
+                    continue;
                 }
+
+                CameraInfo camera = _camera.First(cam => cam.id == (int)c.Tag);
+                if (_isCalibrated)
+                    camera.corrFrame = calibration.correctImage(camera.frame, camera.role);
+                else
+                    camera.corrFrame = camera.frame;
+                
+                c.Image = camera.corrFrame;
             }
 
         }
@@ -352,6 +353,9 @@ namespace PV2_zadanie
 
         // graber for capturing camera frame
         private VideoCapture _graber;
+
+        // corrected frame
+        public Mat corrFrame;
 
         // frame from camera
         public Mat frame;
