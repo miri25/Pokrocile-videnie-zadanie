@@ -40,7 +40,7 @@
             // 
             // buttonSelect
             // 
-            this.buttonSelect.Location = new System.Drawing.Point(1327, 17);
+            this.buttonSelect.Location = new System.Drawing.Point(1327, 43);
             this.buttonSelect.Name = "buttonSelect";
             this.buttonSelect.Size = new System.Drawing.Size(75, 23);
             this.buttonSelect.TabIndex = 1;
@@ -51,7 +51,7 @@
             // buttonSave
             // 
             this.buttonSave.Enabled = false;
-            this.buttonSave.Location = new System.Drawing.Point(1327, 46);
+            this.buttonSave.Location = new System.Drawing.Point(1327, 72);
             this.buttonSave.Name = "buttonSave";
             this.buttonSave.Size = new System.Drawing.Size(75, 23);
             this.buttonSave.TabIndex = 2;
@@ -75,7 +75,7 @@
             // labelSelect
             // 
             this.labelSelect.AutoSize = true;
-            this.labelSelect.Location = new System.Drawing.Point(1324, 72);
+            this.labelSelect.Location = new System.Drawing.Point(1324, 98);
             this.labelSelect.Name = "labelSelect";
             this.labelSelect.Size = new System.Drawing.Size(55, 13);
             this.labelSelect.TabIndex = 4;
@@ -84,7 +84,7 @@
             // buttonCalibration
             // 
             this.buttonCalibration.Enabled = false;
-            this.buttonCalibration.Location = new System.Drawing.Point(1327, 121);
+            this.buttonCalibration.Location = new System.Drawing.Point(1327, 147);
             this.buttonCalibration.Name = "buttonCalibration";
             this.buttonCalibration.Size = new System.Drawing.Size(75, 23);
             this.buttonCalibration.TabIndex = 5;
@@ -95,7 +95,7 @@
             // buttonSaveCalib
             // 
             this.buttonSaveCalib.Enabled = false;
-            this.buttonSaveCalib.Location = new System.Drawing.Point(1327, 150);
+            this.buttonSaveCalib.Location = new System.Drawing.Point(1327, 176);
             this.buttonSaveCalib.Name = "buttonSaveCalib";
             this.buttonSaveCalib.Size = new System.Drawing.Size(75, 23);
             this.buttonSaveCalib.TabIndex = 6;

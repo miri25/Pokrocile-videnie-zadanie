@@ -18,16 +18,35 @@ namespace PV2_zadanie
 {
     enum CameraRole { Single, Stereo_Left, Stereo_Right };
 
+    enum CameraType { Stream, Video, Image };
+
+    class CameraParam
+    {
+        public Matrix<double> cameraMatrix;
+        public Matrix<double> distortionCoeffs;
+        public Mat rotationMatrix;
+        public Mat translationMatrix;
+
+        public CameraParam()
+        {
+            cameraMatrix = new Matrix<double>(3,3);
+            distortionCoeffs = new Matrix<double>(1,5);
+            rotationMatrix = new Mat();
+            translationMatrix = new Mat();
+        }
+        
+    }
+
     class Calibration
     {
-        private Matrix<double>[] cameraMatrix;
-        private Matrix<double>[] distortionCoeffs;
-        private Matrix<double>[] rotationMatrix;
-        private Matrix<double>[] translationMatrix;
-        private Matrix<double> disparityMatrix;
-        private Rectangle[] roiCam;
+        List<CameraParam> cameraParam = new List<CameraParam>();
+        private Mat disparityMatrix = new Mat();
+        private Matrix<int>[] rectMask = new Matrix<int>[2];
         private Size imgSize;
 
+        Matrix<double> R = new Matrix<double>(3,3);
+        Matrix<double> T = new Matrix<double>(3, 1);
+        
         private bool _isCalibrated = false;
         public bool isCalibrated { get { return _isCalibrated; } }
 
@@ -35,42 +54,8 @@ namespace PV2_zadanie
 
         public Calibration()
         {
-            
         }
-
-        public void initSingle()
-        {
-            _isStereo = false;
-            cameraMatrix = new Matrix<double>[1];
-            distortionCoeffs = new Matrix<double>[1];
-            rotationMatrix = new Matrix<double>[0];
-            translationMatrix = new Matrix<double>[0];
-            roiCam = new Rectangle[1];
-
-            cameraMatrix[0] = new Matrix<double>(3, 3);
-            distortionCoeffs[0] = new Matrix<double>(8, 1);
-        }
-
-        public void initStereo()
-        {
-            _isStereo = true;
-            cameraMatrix = new Matrix<double>[2];
-            distortionCoeffs = new Matrix<double>[2];
-            rotationMatrix = new Matrix<double>[2];
-            translationMatrix = new Matrix<double>[2];
-            roiCam = new Rectangle[2];
-
-            disparityMatrix = new Matrix<double>(4, 4);
-            for (int i = 0; i < 2; i++)
-            {
-                cameraMatrix[i] = new Matrix<double>(3, 3);
-                distortionCoeffs[i] = new Matrix<double>(1, 5);
-                rotationMatrix[i] = new Matrix<double>(3, 3);
-                translationMatrix[i] = new Matrix<double>(3, 4);
-                roiCam[i] = Rectangle.Empty;
-            }
-        }
-
+        
         private VectorOfPoint3D32F getChessboardCorners(float square, Size patternSize)
         {
             MCvPoint3D32f[] corners = new MCvPoint3D32f[patternSize.Height * patternSize.Width];
@@ -168,64 +153,67 @@ namespace PV2_zadanie
             return allCorners;
         }
 
-        public Mat correctImage(Mat image, CameraRole role)
+        public void correctImage(Image<Bgr,byte> src, Image<Bgr, byte> dest, CameraRole role)
         {
             if (!_isCalibrated)
-                return null;
-
-            Mat outImg = image.Clone();
+                return;
 
             if (!_isStereo)
             {
-                CvInvoke.Undistort(image, outImg, cameraMatrix[0], distortionCoeffs[0]);
-                /*
-                roiCam[0] = new Rectangle();
-                CvInvoke.InitUndistortRectifyMap(
-                    cameraMatrix[0],
-                    distortionCoeffs[0],
-                    new Mat(),
-                    CvInvoke.GetOptimalNewCameraMatrix(
-                        cameraMatrix[0],
-                        distortionCoeffs[0],
-                        imgSize, 1, imgSize,
-                        ref roiCam[0]),
-                    imgSize,
-                    DepthType.Cv32F,
-                    map1, map2);
-                CvInvoke.Remap(image, outImg, map1, map2, Inter.Cubic);
-                */
-                
-                return outImg;
+                CvInvoke.Undistort(src, dest, cameraParam[0].cameraMatrix, cameraParam[0].distortionCoeffs);
+                return;
             }
 
             int ix = 0;
             if (role == CameraRole.Stereo_Right)
                 ix = 1;
-
-            //CvInvoke.Undistort(image, outImg, cameraMatrix[ix], distortionCoeffs[ix]);
+            /*
             Mat map1 = new Mat();
             Mat map2 = new Mat();
-
-            //CvInvoke.WarpPerspective(outImg, outImg, translationMatrix[ix],imgSize);
             
             CvInvoke.InitUndistortRectifyMap(
-                cameraMatrix[ix],
-                distortionCoeffs[ix],
-                rotationMatrix[ix],
-                translationMatrix[ix],
-                imgSize,
+                cameraParam[ix].cameraMatrix,
+                cameraParam[ix].distortionCoeffs,
+                cameraParam[ix].rotationMatrix,
+                cameraParam[ix].translationMatrix,
+                src.Size,
                 DepthType.Cv32F,
                 map1, map2);
-            CvInvoke.Remap(image, outImg, map1, map2, Inter.Cubic);
-            return outImg;
+            CvInvoke.Remap(src, dest, map1, map2, Inter.Cubic);
+            return;
+            */
+            
+            Image<Bgr, byte> temp = new Image<Bgr, byte>(src.Width, src.Height);
+            CvInvoke.Undistort(src, temp, cameraParam[ix].cameraMatrix, cameraParam[ix].distortionCoeffs);
+            rectification(temp, dest, ix);
+            temp.Dispose();
+            return;
+            
         }
 
-        public Mat computeDisparity(Mat leftImg, Mat rightImg)
+        private void rectification(Image<Bgr, byte> src, Image<Bgr, byte> dest, int ix)
+        {
+            //if (src.Size != dest.Size)
+            //    dest = new Image<Bgr, byte>(src.Width, src.Height);
+
+            for (int y = 0; y < src.Rows; y++)
+                for (int x = 0; x < src.Cols; x++)
+                    dest[rectMask[ix].Data[y, 2 * x], rectMask[ix].Data[y, 2 * x + 1]] = src[y,x];
+
+            /*
+            for (int y = 0; y < src.Rows; y++)
+                if (y % 20 == 0)
+                    CvInvoke.Line(dest, new Point(0, y), new Point(dest.Cols, y), new MCvScalar(0, 255, 0));
+            */
+        }
+
+
+        public Mat computeDisparity(Image<Bgr, byte> leftImg, Image<Bgr, byte> rightImg)
         {
             if (!_isCalibrated || !_isStereo)
                 return new Mat();
             
-            if (leftImg.Depth != rightImg.Depth)
+            if (leftImg.Mat.Depth != rightImg.Mat.Depth)
                 return new Mat();
             
             Mat disparity = new Mat();
@@ -256,7 +244,6 @@ namespace PV2_zadanie
 
         public bool calibrate(float squareEdge, Size patternSize, string[] images)
         {
-            initSingle();
             VectorOfVectorOfPointF corners = findCorners(squareEdge, patternSize, images);
 
             if (corners.Size == 0)
@@ -270,28 +257,33 @@ namespace PV2_zadanie
             for (int i = corners.Size; i > 0; i--)
                 objectPoints.Push(chessboard);
 
-            Image<Gray, Byte> image = new Image<Gray, Byte>(images[0]);
-            imgSize = image.Size;
+            CameraParam param = new CameraParam();
+            
+            // set mats
             Mat rotationMat = new Mat();
             Mat translationMat = new Mat();
+
+            Image<Gray, Byte> image = new Image<Gray, Byte>(images[0]);
+            imgSize = image.Size;
 
             CvInvoke.CalibrateCamera(
                 objectPoints,
                 corners,
                 image.Size,
-                cameraMatrix[0],
-                distortionCoeffs[0],
+                param.cameraMatrix.Mat,
+                param.distortionCoeffs.Mat,
                 rotationMat,
                 translationMat,
                 CalibType.Default,
                 new MCvTermCriteria(30, 0.1));
-            
+
+            cameraParam.Clear();
+            cameraParam.Add(param);
             return _isCalibrated = true;
         }
 
         public bool calibrate(float squareEdge, Size patternSize, string[] imagesLeft, string[] imagesRight)
         {
-            initStereo();
             List<VectorOfVectorOfPointF> listCorners = findCorners(squareEdge, patternSize, imagesLeft, imagesRight);
 
             if (listCorners.Last().Size == 0)
@@ -306,86 +298,203 @@ namespace PV2_zadanie
                 objectPoints.Push(chessboard);
 
             Image<Gray, Byte> image = new Image<Gray, Byte>(imagesLeft[0]);
-            imgSize = Size.Empty;
-            roiCam[0] = Rectangle.Empty;
-            roiCam[1] = Rectangle.Empty;
+
+            CameraParam camLeft = new CameraParam();
+            CameraParam camRight = new CameraParam();
             
-            // set mats
-            Mat rotationMat = new Mat();
-            Mat translationMat = new Mat();
-            Mat essentialMat = new Mat();
-            Mat fundamentalMat = new Mat();
-            
+            Matrix<double> E = new Matrix<double>(3, 3);
+            Matrix<double> F = new Matrix<double>(3, 3);
             CvInvoke.StereoCalibrate(
                 objectPoints,
                 listCorners[0],
                 listCorners[1],
-                cameraMatrix[0],
-                distortionCoeffs[0],
-                cameraMatrix[1],
-                distortionCoeffs[1],
+                camLeft.cameraMatrix.Mat,
+                camLeft.distortionCoeffs.Mat,
+                camRight.cameraMatrix.Mat,
+                camRight.distortionCoeffs.Mat,
                 image.Size,
-                rotationMat,
-                translationMat,
-                essentialMat,
-                fundamentalMat,
+                R, T, E, F,
                 CalibType.Default,
                 new MCvTermCriteria(30, 0.1e5));
-
+            
+            /*
+            Rectangle roi1 = Rectangle.Empty, roi2 = Rectangle.Empty;
             CvInvoke.StereoRectify(
-                cameraMatrix[0],
-                distortionCoeffs[0],
-                cameraMatrix[1],
-                distortionCoeffs[1],
+                camLeft.cameraMatrix.Mat,
+                camLeft.distortionCoeffs.Mat,
+                camRight.cameraMatrix.Mat,
+                camRight.distortionCoeffs.Mat,
                 image.Size,
-                rotationMat,
-                translationMat,
-                rotationMatrix[0],
-                rotationMatrix[1],
-                translationMatrix[0],
-                translationMatrix[1],
+                R,T,
+                camLeft.rotationMatrix,
+                camRight.rotationMatrix,
+                camLeft.translationMatrix,
+                camRight.translationMatrix,
                 disparityMatrix,
                 StereoRectifyType.Default,
-                1,
-                imgSize,
-                ref roiCam[0],
-                ref roiCam[1]);
+                -1, Size.Empty, 
+                ref roi1,
+                ref roi2);
+            */
 
-            imgSize.Width = roiCam[0].Width > roiCam[1].Width ? roiCam[0].Width : roiCam[1].Width;
-            imgSize.Height = roiCam[0].Height > roiCam[1].Height ? roiCam[0].Height : roiCam[1].Height;
+            cameraParam.Clear();
+            cameraParam.Add(camLeft);
+            cameraParam.Add(camRight);
 
+            //Matrix<double> newE = getEssentialMatrix();
+            //Matrix<double> newF = getFundamentalMatrix();
+            rectMask[0] = getPointSet(image.Size, 0);
+            rectMask[1] = getPointSet(image.Size, 1);
+            
+            _isStereo = true;
             return _isCalibrated = true;
+        }
+        
+        public Matrix<int> getPointSet(Size imgSz, int ix)
+        {
+            Matrix<int> outMat = new Matrix<int>(imgSz.Height, imgSz.Width, 2);
+            Matrix<double> temp = new Matrix<double>(imgSz.Height, imgSz.Width, 3);
+            Matrix<double> point = new Matrix<double>(3,2);
+            int newX, newY;
+
+            PointF o = new PointF((float)cameraParam[ix].cameraMatrix.Data[0, 2],
+                                  (float)cameraParam[ix].cameraMatrix.Data[1, 2]);
+            double fx = cameraParam[ix].cameraMatrix.Data[0, 0];
+            double fy = cameraParam[ix].cameraMatrix.Data[1, 1];
+
+            Matrix<double> rectMat;
+            if (ix == 1)
+            {
+                Matrix<double> invR = new Matrix<double>(3, 3);
+                //CvInvoke.Invert(R, invR, DecompMethod.LU);
+                rectMat = R.Mul(getRectMatrix());
+            }
+            else
+                rectMat = getRectMatrix();
+
+            int maxX = int.MinValue, maxY = int.MinValue;
+            int minX = int.MaxValue, minY = int.MaxValue;
+            
+            for (int y = 0; y < imgSz.Height; y++)
+                for (int x = 0; x < imgSz.Width; x++)
+                {
+                    point[0, 0] = (x - o.X) / fx;
+                    point[1, 0] = (y - o.Y) / fy;
+                    point[2, 0] = -1;
+
+                    point[0, 1] = rectMat[0, 0] * point[0, 0]
+                                + rectMat[0, 1] * point[1, 0]
+                                + rectMat[0, 2] * point[2, 0];
+
+                    point[1, 1] = rectMat[1, 0] * point[0, 0]
+                                + rectMat[1, 1] * point[1, 0]
+                                + rectMat[1, 2] * point[2, 0];
+
+                    point[2, 1] = rectMat[2, 0] * point[0, 0]
+                                + rectMat[2, 1] * point[1, 0]
+                                + rectMat[2, 2] * point[2, 0];
+
+                    newX = (int) (point[0, 1] * fx / point[2, 1] + o.X + 0.5);
+                    newY = (int) (point[1, 1] * fy / point[2, 1] + o.Y + 0.5);
+
+                    if (newY > maxY) maxY = newY;
+                    if (newY < minY) minY = newY;
+                    if (newX > maxX) maxX = newX;
+                    if (newX < minX) minX = newX;
+                    
+                    outMat.Data[y, 2 * x] = newY;
+                    outMat.Data[y, 2 * x + 1] = newX;
+                }
+
+            double scale =  (double)(imgSz.Width-1) / (maxX - minX);
+            //double scale = (double)(imgSz.Height-1) / (maxY - minY);
+
+            for (int y = 0; y < imgSz.Height; y++)
+                for (int x = 0; x < imgSz.Width; x++)
+                {
+                    outMat.Data[y, 2 * x] = (int)((outMat.Data[y, 2 * x] - minY) * scale + 0.5);
+                    outMat.Data[y, 2 * x + 1] = (int)((outMat.Data[y, 2 * x + 1] - minX) * scale + 0.5);
+
+                    if (outMat.Data[y, 2 * x + 1] >= imgSz.Width || outMat.Data[y, 2 * x + 1] < 0)
+                        outMat.Data[y, 2 * x + 1] = 0;
+                    if (outMat.Data[y, 2 * x] >= imgSz.Height || outMat.Data[y, 2 * x] < 0)
+                        outMat.Data[y, 2 * x] = 0;
+                }
+
+            return outMat;
+        }
+        
+        private Matrix<double> getRectMatrix()
+        {            
+            Matrix<double> e1 = T.Clone().Mul(1 / T.Norm);
+            Matrix<double> e2 = new Matrix<double>(new double[3] { -T[1, 0], T[0, 0], 0 })
+                                .Mul(1 / Math.Sqrt(T[0, 0] * T[0, 0] + T[1, 0] * T[1, 0]));
+            Matrix<double> e3 = new Matrix<double>(3, 1);
+            e1.Mat.Cross(e2.Mat).CopyTo(e3.Mat);
+            e3.Mul(e3.Norm);
+
+            return e1.Transpose().ConcateVertical(e2.Transpose().ConcateVertical(e3.Transpose()));
+        }
+        
+        // we do not compute relative R and T because of minimum reprojection -> stereo calibrate
+        private void composeRT()
+        {
+            /*
+            Matrix<double> rMatLeft = new Matrix<double>(3, 3, 1);
+            Matrix<double> rMatRight = new Matrix<double>(3, 3, 1);
+            CvInvoke.Rodrigues(cameraParam[0].rotationMatrix.Row(0), rMatLeft.Mat);
+            CvInvoke.Rodrigues(cameraParam[1].rotationMatrix.Row(0), rMatRight.Mat);
+
+            double[] data = new double[3];
+            cameraParam[0].translationMatrix.Row(0).CopyTo(data);
+            Matrix<double> tMatLeft = new Matrix<double>(data);
+
+            cameraParam[1].translationMatrix.Row(0).CopyTo(data);
+            Matrix<double> tMatRight = new Matrix<double>(data);
+
+            R = rMatRight.Mul(rMatLeft.Transpose()); // R = Rr*Rl'
+
+            Matrix<double> U = new Matrix<double>(3, 3);
+            Matrix<double> D = new Matrix<double>(3, 1);
+            Matrix<double> V = new Matrix<double>(3, 3);
+            CvInvoke.SVDecomp(R.Mat, D.Mat, U.Mat, V.Mat, SvdFlag.Default);
+            Matrix<double> newD = new Matrix<double>(new double[,] { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } });
+
+            R = U.Mul(newD.Mul(V.Transpose()));
+            T = tMatLeft.Sub(R.Transpose().Mul(tMatRight));
+            */
         }
 
         public void saveData(string path)
         {
             if (!_isCalibrated)
                 return;
-
+            /*
             StreamWriter file = new StreamWriter(path, false);
-            for (int cam = 0; cam < cameraMatrix.Length; cam++)
+            for (int cam = 0; cam < cameraParam.Count; cam++)
             {
                 file.WriteLine("Camera Matrix "+ cam +":");
-                for (int row = 0; row < cameraMatrix[cam].Rows; row++)
+                for (int row = 0; row < cameraParam[cam].cameraMatrix.Rows; row++)
                 {
-                    for (int col = 0; col < cameraMatrix[cam].Cols; col++)
+                    for (int col = 0; col < cameraParam[cam].cameraMatrix.Cols; col++)
                     {
-                        file.Write("{0,10:F3}", cameraMatrix[cam][row, col]);
+                        file.Write("{0,10:F3}", cameraParam[cam].cameraMatrix[row, col]);
                     }
                     file.WriteLine();
                 }
                 file.WriteLine();
 
                 file.WriteLine("Distortion Matrix "+ cam +":");
-                for (int row = 0; row < distortionCoeffs[cam].Rows; row++)
+                for (int row = 0; row < cameraParam[cam].distortionCoeffs.Rows; row++)
                 {
-                    for (int col = 0; col < distortionCoeffs[cam].Cols; col++)
+                    for (int col = 0; col < cameraParam[cam].distortionCoeffs.Cols; col++)
                     {
-                        file.Write("{0,10:F3}", distortionCoeffs[cam][row, col]);
+                        file.Write("{0,10:F3}", cameraParam[cam].distortionCoeffs[row, col]);
                     }
                     file.WriteLine();
                 }
             }
+            */
         }
     }
 }

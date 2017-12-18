@@ -53,7 +53,7 @@ namespace PV2_zadanie
             CvInvoke.UseOpenCL = false;
             try
             {
-                _camera = getConnectedCameras();
+                _camera = getImageCameras();
 
                 if (_camera.Count == 0)
                     return;
@@ -76,7 +76,61 @@ namespace PV2_zadanie
 
             List<CameraInfo> camera = new List<CameraInfo>();
             for (int i = 0; i < _SysteCameras.Length; i++)
-                camera.Add(new CameraInfo(i, _SysteCameras[i].Name));
+                camera.Add(new CameraInfo(i, CameraType.Stream));
+            return camera;
+        }
+
+        private List<CameraInfo> getImageCameras()
+        {
+            string[] paths = null;
+            using (OpenFileDialog fdialog = new OpenFileDialog())
+            {
+                fdialog.InitialDirectory = pathLoad;
+                fdialog.Multiselect = true;
+                fdialog.CheckFileExists = true;
+                fdialog.CheckPathExists = true;
+                fdialog.Filter = "(*.jpeg)|*.jpeg";
+
+                fdialog.Title = "Camera image";
+                if (fdialog.ShowDialog() == DialogResult.OK)
+                {
+                    paths = fdialog.FileNames;
+                    pathLoad = fdialog.FileName.TrimStart('\\');
+                }
+            }
+            
+            List<CameraInfo> camera = new List<CameraInfo>();
+
+            if (paths == null)
+                return camera;
+
+            for (int i = 0; i < paths.Length; i++)
+                camera.Add(new CameraInfo(i, CameraType.Image, paths[i]));
+            return camera;
+        }
+
+        private List<CameraInfo> getVideoCameras()
+        {
+            string[] paths = null;
+            using (OpenFileDialog fdialog = new OpenFileDialog())
+            {
+                fdialog.InitialDirectory = pathLoad;
+                fdialog.Multiselect = true;
+                fdialog.CheckFileExists = true;
+                fdialog.CheckPathExists = true;
+                fdialog.Filter = "(*.mp4)|*.mp4";
+
+                fdialog.Title = "Camera image";
+                if (fdialog.ShowDialog() == DialogResult.OK)
+                {
+                    paths = fdialog.FileNames;
+                    pathLoad = fdialog.FileName.TrimStart('\\');
+                }
+            }
+
+            List<CameraInfo> camera = new List<CameraInfo>();
+            for (int i = 0; i < paths.Length; i++)
+                camera.Add(new CameraInfo(i, CameraType.Video, paths[i]));
             return camera;
         }
 
@@ -130,29 +184,6 @@ namespace PV2_zadanie
                 c.Size = size;
 
             return;
-        }
-
-        private void addRowView(int idTag)
-        {
-            Size size = flowLayoutPanel.Size;
-            int count = flowLayoutPanel.Controls.Count;
-
-            int rows = (int)Math.Sqrt(count);
-            int cols = (int)Math.Ceiling((double)count / rows);
-            size.Height /= rows+1;
-            size.Width /= cols;
-
-            foreach (Control c in flowLayoutPanel.Controls)
-                c.Size = size;
-
-            ImageBox view = new ImageBox();
-            view.Tag = idTag;
-            view.Margin = new Padding(0);
-            view.Padding = new Padding(0);
-            view.FunctionalMode = ImageBox.FunctionalModeOption.RightClickMenu;
-            view.SizeMode = PictureBoxSizeMode.Zoom;
-            view.Size = new Size(flowLayoutPanel.Width, size.Height);
-            flowLayoutPanel.Controls.Add(view);
         }
 
         private void buttonSave_Click(object sender, EventArgs e)
@@ -227,11 +258,13 @@ namespace PV2_zadanie
 
                 CameraInfo camera = _camera.First(cam => cam.id == (int)c.Tag);
                 if (_isCalibrated)
-                    camera.corrFrame = calibration.correctImage(camera.frame, camera.role);
-                else
-                    camera.corrFrame = camera.frame;
-                
-                c.Image = camera.corrFrame;
+                {
+                    calibration.correctImage(camera.frame, camera.corrFrame, camera.role);
+                    c.Image = camera.corrFrame;
+                    continue;
+                }
+
+                c.Image = camera.frame;
             }
 
         }
@@ -265,7 +298,7 @@ namespace PV2_zadanie
                         return;
                     }
 
-                    _isCalibrated = calibration.calibrate(25, new Size(9, 6), paths);
+                    _isCalibrated = calibration.calibrate(25, new Size(8, 6), paths);
 
                     break;
 
@@ -314,7 +347,7 @@ namespace PV2_zadanie
 
                     _isCalibrated = calibration.calibrate(25, new Size(9, 6), pathsLeft, pathsRight);
 
-                    addCamView(20);
+                    //addCamView(20);
                     break;
             }
         }
@@ -349,53 +382,75 @@ namespace PV2_zadanie
 
         public CameraRole role;
 
-        public string cameraType;
+        public CameraType cameraType;
 
         // graber for capturing camera frame
         private VideoCapture _graber;
 
         // corrected frame
-        public Mat corrFrame;
+        public Image<Bgr,byte> corrFrame;
 
         // frame from camera
-        public Mat frame;
+        public Image<Bgr, byte> frame;
 
-        public CameraInfo(int id, string cameraType)
+        public CameraInfo(int id, CameraType cameraType, string source = null)
         {
             this.id = id;
-            this.cameraType = cameraType.Replace(' ', '_');
-            _graber = new VideoCapture(id);
-            _graber.ImageGrabbed += processFrame;
-            frame = new Mat();
+
+            switch (cameraType)
+            {
+                case CameraType.Image:
+                    frame = new Image<Bgr, byte>(source);
+                    break;
+                case CameraType.Video:
+                    _graber = new VideoCapture(source);
+                    _graber.ImageGrabbed += processFrame;
+                    frame = new Image<Bgr, byte>(_graber.Width, _graber.Height);
+                    break;
+
+                case CameraType.Stream:
+                    _graber = new VideoCapture(id);
+                    _graber.ImageGrabbed += processFrame;
+                    frame = new Image<Bgr, byte>(_graber.Width, _graber.Height);
+                    break;
+            }
+
+            corrFrame = new Image<Bgr, byte>(frame.Width, frame.Height);
+            this.cameraType = cameraType;           
         }
 
         public void Dispose()
         {
-            _graber.Dispose();
+            if(cameraType != CameraType.Image)
+                _graber.Dispose();
         }
 
         private void processFrame(object sender, EventArgs args)
         {
-            if (_graber.IsOpened)
-                _graber.Retrieve(frame, 0);
+            if (cameraType != CameraType.Image)
+                if (_graber.IsOpened)
+                    _graber.Retrieve(frame, 0);
         }
 
         public void Start()
         {
-            if (_graber.IsOpened)
-                _graber.Start();
+            if (cameraType != CameraType.Image)
+                if (_graber.IsOpened)
+                    _graber.Start();
         }
 
         public void Stop()
         {
-            if (_graber.IsOpened)
-                _graber.Stop();
+            if (cameraType != CameraType.Image)
+                if (_graber.IsOpened)
+                    _graber.Stop();
         }
 
         public void Pause()
         {
-            if (_graber.IsOpened)
-                _graber.Pause();
+            if (cameraType != CameraType.Image)
+                if (_graber.IsOpened)
+                    _graber.Pause();
         }
 
         public bool Save(string path, int imgNum)
