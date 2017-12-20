@@ -24,15 +24,15 @@ namespace PV2_zadanie
     {
         public Matrix<double> cameraMatrix;
         public Matrix<double> distortionCoeffs;
-        public Mat rotationMatrix;
-        public Mat translationMatrix;
+        public Matrix<double> rotationMatrix;
+        public Matrix<double> translationMatrix;
 
         public CameraParam()
         {
             cameraMatrix = new Matrix<double>(3,3);
             distortionCoeffs = new Matrix<double>(1,5);
-            rotationMatrix = new Mat();
-            translationMatrix = new Mat();
+            rotationMatrix = new Matrix<double>(3, 3);
+            translationMatrix = new Matrix<double>(3, 4);
         }
         
     }
@@ -43,10 +43,13 @@ namespace PV2_zadanie
         private Mat disparityMatrix = new Mat();
         private Matrix<int>[] rectMask = new Matrix<int>[2];
         private Size imgSize;
+        private Matrix<double>[] rectTransforms;
 
-        Matrix<double> R = new Matrix<double>(3,3);
+        Matrix<double> R = new Matrix<double>(3, 3);
         Matrix<double> T = new Matrix<double>(3, 1);
-        
+        Matrix<double> E = new Matrix<double>(3, 3);
+        Matrix<double> F = new Matrix<double>(3, 3);
+
         private bool _isCalibrated = false;
         public bool isCalibrated { get { return _isCalibrated; } }
 
@@ -185,28 +188,21 @@ namespace PV2_zadanie
             
             Image<Bgr, byte> temp = new Image<Bgr, byte>(src.Width, src.Height);
             CvInvoke.Undistort(src, temp, cameraParam[ix].cameraMatrix, cameraParam[ix].distortionCoeffs);
-            rectification(temp, dest, ix);
+            showEpipolars(temp, ix);
+            /*
+            for (int y = 0; y < src.Rows; y++)
+                for (int x = 0; x < src.Cols; x++)
+                    if (rectMask[ix].Data[y, 2 * x] > 0 &&
+                       rectMask[ix].Data[y, 2 * x] < src.Rows &&
+                       rectMask[ix].Data[y, 2 * x + 1] > 0 &&
+                       rectMask[ix].Data[y, 2 * x + 1] < src.Cols)
+                        dest[rectMask[ix].Data[y, 2 * x], rectMask[ix].Data[y, 2 * x +1]] = temp[y, x];
+            */
+            CvInvoke.WarpPerspective(temp, dest, rectTransforms[ix], src.Size); ;
             temp.Dispose();
             return;
             
         }
-
-        private void rectification(Image<Bgr, byte> src, Image<Bgr, byte> dest, int ix)
-        {
-            //if (src.Size != dest.Size)
-            //    dest = new Image<Bgr, byte>(src.Width, src.Height);
-
-            for (int y = 0; y < src.Rows; y++)
-                for (int x = 0; x < src.Cols; x++)
-                    dest[rectMask[ix].Data[y, 2 * x], rectMask[ix].Data[y, 2 * x + 1]] = src[y,x];
-
-            /*
-            for (int y = 0; y < src.Rows; y++)
-                if (y % 20 == 0)
-                    CvInvoke.Line(dest, new Point(0, y), new Point(dest.Cols, y), new MCvScalar(0, 255, 0));
-            */
-        }
-
 
         public Mat computeDisparity(Image<Bgr, byte> leftImg, Image<Bgr, byte> rightImg)
         {
@@ -225,6 +221,25 @@ namespace PV2_zadanie
             }
 
             return disparity;
+        }
+
+        private void showEpipolars(Image<Bgr, byte> src, int ix)
+        {
+            for (int y = 0; y < src.Rows; y += 30)
+            {
+                Matrix<double> line;
+                if (ix == 0)
+                    line = F.Transpose().Mul(new Matrix<double>(new double[,] { { 0 }, { y }, { 1 } }));
+                else
+                    line = F.Mul(new Matrix<double>(new double[,] { { 0 }, { y }, { 1 } }));
+
+                for (int x = 0; x < src.Cols; x++)
+                {
+                    int yEpi = (int)(-line[0, 0] * x / line[1, 0] - line[2, 0] / line[1, 0]);
+                    if (yEpi > 0 && yEpi < src.Rows)
+                        src[yEpi, x] = new Bgr(Color.Green);
+                }
+            }
         }
 
         private void showDetectedCorners(int figure, string path, Point[] corners)
@@ -302,8 +317,6 @@ namespace PV2_zadanie
             CameraParam camLeft = new CameraParam();
             CameraParam camRight = new CameraParam();
             
-            Matrix<double> E = new Matrix<double>(3, 3);
-            Matrix<double> F = new Matrix<double>(3, 3);
             CvInvoke.StereoCalibrate(
                 objectPoints,
                 listCorners[0],
@@ -317,7 +330,7 @@ namespace PV2_zadanie
                 CalibType.Default,
                 new MCvTermCriteria(30, 0.1e5));
             
-            /*
+            
             Rectangle roi1 = Rectangle.Empty, roi2 = Rectangle.Empty;
             CvInvoke.StereoRectify(
                 camLeft.cameraMatrix.Mat,
@@ -326,104 +339,152 @@ namespace PV2_zadanie
                 camRight.distortionCoeffs.Mat,
                 image.Size,
                 R,T,
-                camLeft.rotationMatrix,
-                camRight.rotationMatrix,
-                camLeft.translationMatrix,
-                camRight.translationMatrix,
+                camLeft.rotationMatrix.Mat,
+                camRight.rotationMatrix.Mat,
+                camLeft.translationMatrix.Mat,
+                camRight.translationMatrix.Mat,
                 disparityMatrix,
                 StereoRectifyType.Default,
                 -1, Size.Empty, 
                 ref roi1,
                 ref roi2);
-            */
+            
 
             cameraParam.Clear();
             cameraParam.Add(camLeft);
             cameraParam.Add(camRight);
 
-            //Matrix<double> newE = getEssentialMatrix();
-            //Matrix<double> newF = getFundamentalMatrix();
-            rectMask[0] = getPointSet(image.Size, 0);
-            rectMask[1] = getPointSet(image.Size, 1);
+            rectTransforms = getRectifyTransforms();
             
+            Matrix<double> p = new Matrix<double>(new double[,] { { image.Size.Width/2 }, { image.Size.Height/2 }, { 1 } });
+            Matrix<double> px = rectTransforms[0].Mul(p);
+            double[,] dL = p.Sub(px.Mul(1 / px[2, 0])).Data;
+
+            px = rectTransforms[1].Mul(p);
+            double[,] dR = p.Sub(px.Mul(1 / px[2, 0])).Data;
+            
+            rectTransforms = getRectifyTransforms(dL, dR);
+
+            rectMask[0] = getRectMask(image.Size, rectTransforms[0]);
+            rectMask[1] = getRectMask(image.Size, rectTransforms[1]);
+
             _isStereo = true;
             return _isCalibrated = true;
         }
         
-        public Matrix<int> getPointSet(Size imgSz, int ix)
+        public Matrix<int> getRectMask(Size imgSz, Matrix<double> H)
         {
             Matrix<int> outMat = new Matrix<int>(imgSz.Height, imgSz.Width, 2);
-            Matrix<double> temp = new Matrix<double>(imgSz.Height, imgSz.Width, 3);
             Matrix<double> point = new Matrix<double>(3,2);
-            int newX, newY;
-
-            PointF o = new PointF((float)cameraParam[ix].cameraMatrix.Data[0, 2],
-                                  (float)cameraParam[ix].cameraMatrix.Data[1, 2]);
-            double fx = cameraParam[ix].cameraMatrix.Data[0, 0];
-            double fy = cameraParam[ix].cameraMatrix.Data[1, 1];
-
-            Matrix<double> rectMat;
-            if (ix == 1)
-            {
-                Matrix<double> invR = new Matrix<double>(3, 3);
-                //CvInvoke.Invert(R, invR, DecompMethod.LU);
-                rectMat = R.Mul(getRectMatrix());
-            }
-            else
-                rectMat = getRectMatrix();
-
-            int maxX = int.MinValue, maxY = int.MinValue;
-            int minX = int.MaxValue, minY = int.MaxValue;
-            
+     
             for (int y = 0; y < imgSz.Height; y++)
                 for (int x = 0; x < imgSz.Width; x++)
                 {
-                    point[0, 0] = (x - o.X) / fx;
-                    point[1, 0] = (y - o.Y) / fy;
-                    point[2, 0] = -1;
+                    point[0, 0] = x;
+                    point[1, 0] = y;
+                    point[2, 0] = 1;
 
-                    point[0, 1] = rectMat[0, 0] * point[0, 0]
-                                + rectMat[0, 1] * point[1, 0]
-                                + rectMat[0, 2] * point[2, 0];
+                    point[0, 1] = H[0, 0] * point[0, 0]
+                                + H[0, 1] * point[1, 0]
+                                + H[0, 2] * point[2, 0];
 
-                    point[1, 1] = rectMat[1, 0] * point[0, 0]
-                                + rectMat[1, 1] * point[1, 0]
-                                + rectMat[1, 2] * point[2, 0];
+                    point[1, 1] = H[1, 0] * point[0, 0]
+                                + H[1, 1] * point[1, 0]
+                                + H[1, 2] * point[2, 0];
 
-                    point[2, 1] = rectMat[2, 0] * point[0, 0]
-                                + rectMat[2, 1] * point[1, 0]
-                                + rectMat[2, 2] * point[2, 0];
-
-                    newX = (int) (point[0, 1] * fx / point[2, 1] + o.X + 0.5);
-                    newY = (int) (point[1, 1] * fy / point[2, 1] + o.Y + 0.5);
-
-                    if (newY > maxY) maxY = newY;
-                    if (newY < minY) minY = newY;
-                    if (newX > maxX) maxX = newX;
-                    if (newX < minX) minX = newX;
+                    point[2, 1] = H[2, 0] * point[0, 0]
+                                + H[2, 1] * point[1, 0]
+                                + H[2, 2] * point[2, 0];
                     
-                    outMat.Data[y, 2 * x] = newY;
-                    outMat.Data[y, 2 * x + 1] = newX;
+                    outMat.Data[y, 2 * x] = (int)(point[1, 1] / point[2, 1]);
+                    outMat.Data[y, 2 * x + 1] = (int)(point[0, 1] / point[2, 1]);
                 }
-
-            double scale =  (double)(imgSz.Width-1) / (maxX - minX);
-            //double scale = (double)(imgSz.Height-1) / (maxY - minY);
-
-            for (int y = 0; y < imgSz.Height; y++)
-                for (int x = 0; x < imgSz.Width; x++)
-                {
-                    outMat.Data[y, 2 * x] = (int)((outMat.Data[y, 2 * x] - minY) * scale + 0.5);
-                    outMat.Data[y, 2 * x + 1] = (int)((outMat.Data[y, 2 * x + 1] - minX) * scale + 0.5);
-
-                    if (outMat.Data[y, 2 * x + 1] >= imgSz.Width || outMat.Data[y, 2 * x + 1] < 0)
-                        outMat.Data[y, 2 * x + 1] = 0;
-                    if (outMat.Data[y, 2 * x] >= imgSz.Height || outMat.Data[y, 2 * x] < 0)
-                        outMat.Data[y, 2 * x] = 0;
-                }
-
+            
             return outMat;
         }
-        
+
+        private Matrix<double>[] getProjecionMatrix()
+        {
+            Matrix<double>[] P = new Matrix<double>[2];
+            P[0] = new Matrix<double>(new double[,] { { 1, 0, 0, 0 },
+                                                    { 0, 1, 0, 0 },
+                                                    { 0, 0, 1, 0 } });
+            P[1] = R.ConcateHorizontal(T);
+
+            // perspective
+            P[0] = cameraParam[0].cameraMatrix.Mul(P[0]);
+            P[1] = cameraParam[1].cameraMatrix.Mul(P[1]);
+
+            return P;
+        }
+
+        private Matrix<double>[] getRectifyTransforms(double[,] dl = null, double[,] dr = null)
+        {
+            Matrix<double> P1, P2;
+            Matrix<double> R0 = new Matrix<double>(new double[,] { { 1, 0, 0 },
+                                                                   { 0, 1, 0 },
+                                                                   { 0, 0, 1 } });
+            P1 = new Matrix<double>(new double[,] { { 1, 0, 0, 0 },
+                                                    { 0, 1, 0, 0 },
+                                                    { 0, 0, 1, 0 } });
+            P2 = R.ConcateHorizontal(T);
+            
+            // perspective
+            P1 = cameraParam[0].cameraMatrix.Mul(P1);
+            P2 = cameraParam[1].cameraMatrix.Mul(P2);
+
+            Matrix<double> invA1 = new Matrix<double>(3, 3);
+            CvInvoke.Invert(cameraParam[0].cameraMatrix.Mat, invA1.Mat, DecompMethod.LU);
+
+            Matrix<double> invA2 = new Matrix<double>(3, 3);
+            CvInvoke.Invert(cameraParam[1].cameraMatrix.Mat, invA2.Mat, DecompMethod.LU);
+
+            // original centers
+            Matrix<double> C1 = R0.Transpose().Mul(invA1.Mul(P1.RemoveCols(0, 3))).Mul(-1);
+            Matrix<double> C2 = R.Transpose().Mul(invA2.Mul(P2.RemoveCols(0, 3))).Mul(-1);
+
+            // epilines go to inf
+            Matrix<double> e1 = C2.Sub(C1);
+            Matrix<double> e2 = new Matrix<double>(3,1);
+            R0.RemoveRows(0, 2).Transpose().Mat.Cross(e1.Mat).CopyTo(e2);
+            Matrix<double> e3 = new Matrix<double>(3, 1);
+            e1.Mat.Cross(e2).CopyTo(e3);
+            e1 = e1.Mul(1 / e1.Norm);
+            e2 = e2.Mul(1 / e2.Norm);
+            e3 = e3.Mul(1 / e3.Norm);
+
+            Matrix<double> rectR = e1.Transpose().ConcateVertical(e2.Transpose().ConcateVertical(e3.Transpose()));
+
+            // camera matrix are same
+            Matrix<double> A1 = cameraParam[0].cameraMatrix.Clone();
+            Matrix<double> A2 = cameraParam[0].cameraMatrix.Clone();
+
+            // center displacement
+            if (dl != null && dr != null)
+            {
+                A1.Data[0, 2] += dl[0, 0];
+                A1.Data[1, 2] += dl[1, 0];
+                A2.Data[0, 2] += dr[0, 0];
+                A2.Data[1, 2] += dl[1, 0]; // vertical displacement must be same
+            }
+
+            // new perspective
+            Matrix<double> Pn1 = A1.Mul(rectR.ConcateHorizontal(rectR.Mul(C1).Mul(-1)));
+            Matrix<double> Pn2 = A2.Mul(rectR.ConcateHorizontal(rectR.Mul(C2).Mul(-1)));
+            
+            Matrix<double>[] outMats = new Matrix<double>[2];
+            Matrix<double> invPR1 = new Matrix<double>(3, 3);
+            CvInvoke.Invert(P1.RemoveCols(3, 4).Mat, invPR1.Mat, DecompMethod.LU);
+
+            Matrix<double> invPR2 = new Matrix<double>(3, 3);
+            CvInvoke.Invert(P2.RemoveCols(3, 4).Mat, invPR2.Mat, DecompMethod.LU);
+
+            // 
+            outMats[0] = Pn1.RemoveCols(3, 4).Mul(invPR1);
+            outMats[1] = Pn2.RemoveCols(3, 4).Mul(invPR2);
+            return outMats;
+        }
+
         private Matrix<double> getRectMatrix()
         {            
             Matrix<double> e1 = T.Clone().Mul(1 / T.Norm);
@@ -435,7 +496,7 @@ namespace PV2_zadanie
 
             return e1.Transpose().ConcateVertical(e2.Transpose().ConcateVertical(e3.Transpose()));
         }
-        
+
         // we do not compute relative R and T because of minimum reprojection -> stereo calibrate
         private void composeRT()
         {
